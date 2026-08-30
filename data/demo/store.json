@@ -100,6 +100,45 @@
         "tags": ["refund", "refund rate spike", "quality", "fulfillment"]
       }
     ]
+  },
+  {
+    "store_id": "healthy-store",
+    "store_name": "Healthy Baseline Store",
+    "metrics": {
+      "current": {"label":"last_7_days","revenue":100000,"orders":1200,"visitors":40000,"conversion_rate":0.03,"refund_rate":0.035,"ad_spend":15000,"ad_revenue":36000},
+      "previous": {"label":"previous_7_days","revenue":96000,"orders":1131,"visitors":39000,"conversion_rate":0.029,"refund_rate":0.037,"ad_spend":14800,"ad_revenue":34000}
+    },
+    "inventory": [{"sku":"SAFE-1","name":"Healthy SKU","available":500,"daily_sales":20,"stockout_hours":0,"estimated_cover_days":25,"revenue_contribution_rate":0.2}],
+    "campaigns": [{"id":"SAFE-CMP","name":"Healthy campaign","status":"active","spend":10000,"revenue":23000,"roi":2.3,"previous_roi":2.2,"daily_budget":1500,"audience":"broad"}]
+  },
+  {
+    "store_id": "traffic-store",
+    "store_name": "Traffic and Conversion Regression Store",
+    "metrics": {
+      "current": {"label":"last_7_days","revenue":68000,"orders":660,"visitors":30000,"conversion_rate":0.022,"refund_rate":0.04,"ad_spend":12000,"ad_revenue":26000},
+      "previous": {"label":"previous_7_days","revenue":90000,"orders":1092,"visitors":42000,"conversion_rate":0.026,"refund_rate":0.041,"ad_spend":12000,"ad_revenue":28000}
+    },
+    "inventory": [{"sku":"SAFE-2","name":"Safe SKU","available":400,"daily_sales":20,"stockout_hours":0,"estimated_cover_days":20,"revenue_contribution_rate":0.3}],
+    "campaigns": [{"id":"SAFE-CMP-2","name":"Stable campaign","status":"active","spend":10000,"revenue":20000,"roi":2,"previous_roi":2.1,"daily_budget":1500,"audience":"broad"}]
+  },
+  {
+    "store_id": "stock-store",
+    "store_name": "Inventory Risk Store",
+    "metrics": {
+      "current": {"label":"last_7_days","revenue":100000,"orders":1200,"visitors":40000,"conversion_rate":0.03,"refund_rate":0.035,"ad_spend":15000,"ad_revenue":36000},
+      "previous": {"label":"previous_7_days","revenue":99000,"orders":1180,"visitors":39800,"conversion_rate":0.0296,"refund_rate":0.035,"ad_spend":15000,"ad_revenue":35500}
+    },
+    "inventory": [{"sku":"RISK-1","name":"Hero SKU","available":20,"daily_sales":10,"stockout_hours":3,"estimated_cover_days":2,"revenue_contribution_rate":0.4}],
+    "campaigns": [{"id":"SAFE-CMP-3","name":"Healthy campaign","status":"active","spend":10000,"revenue":24000,"roi":2.4,"previous_roi":2.3,"daily_budget":1500,"audience":"broad"}]
+  },
+  {
+    "store_id": "campaign-refund-store",
+    "store_name": "Campaign and Refund Risk Store",
+    "metrics": {
+      "current": {"label":"last_7_days","revenue":91000,"orders":950,"visitors":40000,"conversion_rate":0.025,"refund_rate":0.11,"ad_spend":20000,"ad_revenue":22000},
+      "previous": {"label":"previous_7_days","revenue":93000,"orders":980,"visitors":40200,"conversion_rate":0.0255,"refund_rate":0.04,"ad_spend":16000,"ad_revenue":35000}
+    },
+    "inventory": [{"sku":"SAFE-4","name":"Safe SKU","available":400,"daily_sales":20,"stockout_hours":0,"estimated_cover_days":20,"revenue_contribution_rate":0.3}],
+    "campaigns": [{"id":"RISK-CMP","name":"Inefficient search","status":"active","spend":15000,"revenue":16500,"roi":1.1,"previous_roi":2.2,"daily_budget":2100,"audience":"search"}]
   }
 ]
-

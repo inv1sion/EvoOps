@@ -22,3 +22,14 @@ This lets the project run offline, prevents an LLM from bypassing approval, and 
 
 Automatic code mutation is difficult to evaluate, authorize, and roll back under real business traffic. Thresholds, retrieval depth, routing, and prompt versions are suitable evolution units because they can be replayed and canaried. Source changes remain ordinary reviewed pull requests.
 
+## ADR-004: one exact execution path for live runs and evaluation
+
+**Decision:** the Evaluation Harness calls the compiled production Eino workflow with a supplied policy and a dry-run execution gate.
+
+A separate mock evaluator is easier to write but can pass while production routing, tool arguments, or approval behavior has already drifted. Exact-path replay is more expensive, but it makes trajectory and safety assertions meaningful. UUIDs and timing are normalized only when comparing structural fingerprints.
+
+## ADR-005: release credentials bind evaluation to rollout
+
+**Decision:** store the Harness report ID, suite version, and active baseline on every evaluated candidate; require canary before promotion.
+
+A policy that passed against an older baseline is not automatically safe relative to a newly active policy or changed suite. Binding the credential prevents stale candidates from bypassing the current release gate and makes promotion auditable.

@@ -23,6 +23,7 @@ type execution struct {
 	Policy   domain.Policy
 	Context  AnalysisContext
 	Analysis Analysis
+	DryRun   bool
 }
 
 type Engine struct {
@@ -55,6 +56,21 @@ func NewEngine(ctx context.Context, repo repository.Repository, policies *policy
 }
 
 func (e *Engine) Run(ctx context.Context, request domain.DiagnosisRequest) (*domain.Run, error) {
+	selected, err := e.policies.Select(ctx, request.StoreID)
+	if err != nil {
+		return nil, fmt.Errorf("select policy: %w", err)
+	}
+	return e.run(ctx, request, selected, "live", true, false)
+}
+
+// Replay runs the exact production workflow with a caller-supplied policy,
+// disables side effects, and keeps the complete trajectory in memory for the
+// Harness. It is the reproducible execution primitive used by release gates.
+func (e *Engine) Replay(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy) (*domain.Run, error) {
+	return e.run(ctx, request, selected, "replay", false, true)
+}
+
+func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy, mode string, persist, dryRun bool) (*domain.Run, error) {
 	if strings.TrimSpace(request.StoreID) == "" {
 		return nil, fmt.Errorf("store_id is required")
 	}
@@ -64,33 +80,35 @@ func (e *Engine) Run(ctx context.Context, request domain.DiagnosisRequest) (*dom
 	if strings.TrimSpace(request.Question) == "" {
 		request.Question = "What changed, why, and what should we do next?"
 	}
-	selected, err := e.policies.Select(ctx, request.StoreID)
-	if err != nil {
-		return nil, fmt.Errorf("select policy: %w", err)
-	}
 	run := &domain.Run{
-		ID: uuid.NewString(), Request: request, Status: domain.RunRunning,
+		ID: uuid.NewString(), Mode: mode, Request: request, Status: domain.RunRunning,
 		PolicyVersion: selected.Version, StartedAt: time.Now().UTC(), Steps: []domain.Step{},
 	}
-	if err := e.repo.SaveRun(ctx, run); err != nil {
-		return nil, err
+	if persist {
+		if err := e.repo.SaveRun(ctx, run); err != nil {
+			return nil, err
+		}
 	}
-	state := &execution{Request: request, Run: run, Policy: selected, Context: AnalysisContext{StoreID: request.StoreID}}
+	state := &execution{Request: request, Run: run, Policy: selected, Context: AnalysisContext{StoreID: request.StoreID}, DryRun: dryRun}
 	result, err := e.runner.Invoke(ctx, state)
 	if err != nil {
 		run.Status = domain.RunFailed
 		run.Error = err.Error()
 		finished := time.Now().UTC()
 		run.FinishedAt = &finished
-		_ = e.repo.SaveRun(ctx, run)
+		if persist {
+			_ = e.repo.SaveRun(ctx, run)
+		}
 		return run, err
 	}
 	if result.Run.Status == domain.RunCompleted {
 		finished := time.Now().UTC()
 		result.Run.FinishedAt = &finished
 	}
-	if err := e.repo.SaveRun(ctx, result.Run); err != nil {
-		return nil, err
+	if persist {
+		if err := e.repo.SaveRun(ctx, result.Run); err != nil {
+			return nil, err
+		}
 	}
 	return result.Run, nil
 }
@@ -185,8 +203,14 @@ func (e *Engine) diagnose(_ context.Context, state *execution) (*execution, erro
 
 func (e *Engine) retrieve(ctx context.Context, state *execution) (*execution, error) {
 	query := signalQuery(state.Analysis.Signals)
-	step := e.beginStep(state.Run, "retrieve_playbooks", "rag", map[string]any{"query": query, "top_k": state.Policy.RetrievalTopK})
-	args := map[string]any{"store_id": state.Request.StoreID, "query": query, "top_k": state.Policy.RetrievalTopK}
+	step := e.beginStep(state.Run, "retrieve_playbooks", "rag", map[string]any{"query": query, "top_k": state.Policy.RetrievalTopK, "candidate_k": state.Policy.RetrievalCandidateK})
+	args := map[string]any{
+		"store_id": state.Request.StoreID, "query": query, "top_k": state.Policy.RetrievalTopK,
+		"candidate_k": state.Policy.RetrievalCandidateK, "dense_weight": state.Policy.DenseWeight,
+		"sparse_weight": state.Policy.SparseWeight, "rrf_k": state.Policy.RRFK,
+		"merge_threshold": state.Policy.MergeThreshold, "relevance_threshold": state.Policy.RelevanceThreshold,
+		"rerank_enabled": state.Policy.RerankEnabled, "query_rewrite_strategy": state.Policy.QueryRewriteStrategy,
+	}
 	call := e.callTool(ctx, tools.ToolKnowledge, args, &state.Context.Knowledge)
 	step.ToolCalls = append(step.ToolCalls, call)
 	if call.Error != "" {
@@ -195,7 +219,10 @@ func (e *Engine) retrieve(ctx context.Context, state *execution) (*execution, er
 		return state, err
 	}
 	AddKnowledgeEvidence(&state.Analysis, state.Context.Knowledge)
-	e.finishStep(state.Run, step, map[string]any{"documents": len(state.Context.Knowledge)}, nil)
+	e.finishStep(state.Run, step, map[string]any{
+		"documents": len(state.Context.Knowledge.Hits), "retrieval_trace": state.Context.Knowledge.Trace,
+		"cost_units": state.Context.Knowledge.Cost,
+	}, nil)
 	return state, nil
 }
 
@@ -219,6 +246,10 @@ func (e *Engine) guard(ctx context.Context, state *execution) (*execution, error
 		if RequiresApproval(action.Risk, state.Policy.RequiredApprovalRisk) {
 			action.Status = "waiting_approval"
 			pending = append(pending, action.ID)
+			continue
+		}
+		if state.DryRun {
+			action.Status = "would_execute"
 			continue
 		}
 		var receipt any
@@ -263,7 +294,9 @@ func (e *Engine) finishStep(run *domain.Run, step *domain.Step, output any, err 
 	if err != nil {
 		step.Error = err.Error()
 	}
-	_ = e.repo.SaveRun(context.Background(), run)
+	if run.Mode != "replay" {
+		_ = e.repo.SaveRun(context.Background(), run)
+	}
 }
 
 func (e *Engine) callTool(ctx context.Context, name string, args map[string]any, target any) domain.ToolCall {

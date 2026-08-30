@@ -8,6 +8,7 @@ import (
 	"github.com/inv1sion/evoops/internal/config"
 	"github.com/inv1sion/evoops/internal/dataset"
 	"github.com/inv1sion/evoops/internal/evolution"
+	"github.com/inv1sion/evoops/internal/harness"
 	"github.com/inv1sion/evoops/internal/policy"
 	"github.com/inv1sion/evoops/internal/repository"
 	"github.com/inv1sion/evoops/internal/tools"
@@ -19,6 +20,7 @@ type App struct {
 	Policies  *policy.Manager
 	Tools     *tools.Registry
 	Agent     *agent.Engine
+	Harness   *harness.Suite
 	Evolution *evolution.Service
 }
 
@@ -60,12 +62,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		registry.Close()
 		return nil, err
 	}
-	evolutionService, err := evolution.NewService(repo, policies, cfg.EvalDataPath)
+	harnessSuite, err := harness.Load(cfg.HarnessDataPath, engine)
 	if err != nil {
 		registry.Close()
 		return nil, err
 	}
-	return &App{Config: cfg, Repo: repo, Policies: policies, Tools: registry, Agent: engine, Evolution: evolutionService}, nil
+	evolutionService := evolution.NewService(repo, policies, harnessSuite)
+	return &App{Config: cfg, Repo: repo, Policies: policies, Tools: registry, Agent: engine, Harness: harnessSuite, Evolution: evolutionService}, nil
 }
 
 func (a *App) Close() error { return a.Tools.Close() }

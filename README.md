@@ -1,21 +1,56 @@
 # EvoOps
 
-EvoOps is a traceable, policy-evolving operations agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). It turns business metrics into evidence-linked diagnoses and guarded actions, then uses feedback and outcome data to propose safer policy improvements.
+EvoOps is a traceable, self-evolving commerce operations agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). Its center of gravity is not a chat UI: it is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible five-layer Evaluation Harness.
 
-It is intentionally domain-neutral at the framework layer. The included synthetic commerce store makes the workflow concrete without coupling the architecture to one company or internal system.
+The included synthetic stores cover traffic, conversion, campaign ROI, refunds, and stockout risk. The framework boundary remains reusable for other decision-and-execution agents.
 
-## What it demonstrates
+## Why this project is different
 
-- **Eino workflow orchestration** — a compiled `compose.Workflow` coordinates data gathering, diagnosis, retrieval, synthesis, and execution gating.
-- **Eino tools and MCP** — local tools use Eino's typed tool abstraction; optional MCP SSE servers are discovered with the official MCP adapter and added to the same registry.
-- **RAG with evidence lineage** — playbooks are retrieved after signal detection, and every conclusion carries stable evidence IDs.
-- **Durable trajectory** — each run stores node input/output, tool arguments/results, latency, policy version, evidence, and approval events.
-- **Human-in-the-loop execution** — low-risk diagnostic tasks may execute automatically; medium/high-risk operations pause in a durable approval state.
-- **Permission gates** — approval requires an `approver` or `admin` role; canary, promotion, and rollback require `admin`.
-- **Controlled self-evolution** — feedback generates policy candidates, never arbitrary code changes. Candidates must pass offline replay and safety gates before canary traffic.
-- **Model-optional operation** — the deterministic analyzer makes the entire demo and test suite work without an API key. An OpenAI-compatible Eino model can synthesize the final narrative.
+- **Exact-path replay:** the Harness invokes the same compiled Eino workflow and typed tools as the live agent, with side effects replaced by `would_execute`.
+- **Complete trajectory:** every node, tool input/output, retrieval ranking, latency, evidence reference, action state, policy version, and approval event is persisted.
+- **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
+- **Five-layer Harness:** retrieval quality, trajectory correctness, tool safety, business outcome, and cost/latency are scored separately; safety and reproducibility are hard gates.
+- **Constrained self-evolution:** failure attribution produces a field-level mutation allowlist. The optimizer can change versioned policy parameters, never source code or arbitrary tool permissions.
+- **Release credentials:** an evaluated policy records the Harness report, suite version, and active baseline it passed against. Stale candidates cannot enter canary or promotion.
+- **Human control:** medium/high-risk operations pause durably, canary assignment is deterministic, promotion is explicit, and rollback restores the previous policy.
+- **Offline by default:** the complete demo and test suite run without an API key. An OpenAI-compatible Eino model can replace only the narrative synthesizer.
 
-## Architecture
+The retrieval and observability ideas were adapted from my earlier [MedQA-Agentic-RAG](https://github.com/inv1sion/MedQA-Agentic-RAG) project. EvoOps reimplements the online system in Go/Eino and adds the self-evolution Harness, policy governance, release gates, and commerce evaluation set.
+
+## Core loop
+
+```mermaid
+flowchart LR
+    A[Live trajectory + feedback + KPI] --> B[Active-policy Harness]
+    B --> C[Failure attribution]
+    C --> D[Allowed mutation set]
+    D --> E[Versioned candidate]
+    E --> F[Candidate exact-path replay ×2]
+    F --> G{Five-layer gate}
+    G -->|blocked| H[Persist evidence and failure class]
+    G -->|pass| I[Attach release credential]
+    I --> J[Deterministic canary]
+    J --> K{Human decision}
+    K -->|promote| L[New active policy]
+    K -->|regress| M[Rollback]
+    L --> A
+```
+
+Self-evolution here means governed optimization, not uncontrolled source-code rewriting. Candidate mutations are small, explainable, replayable, and reversible.
+
+## Evaluation Harness
+
+| Layer | What is measured | Gate behavior |
+|---|---|---|
+| Retrieval | Precision@K, Recall@K, MRR, NDCG, rewrite use, retrieval cost | Minimum recall and quality score |
+| Trajectory | Eino node sequence, required-tool recall, step/tool budgets, errors, dual-replay fingerprint | Hard gate |
+| Safety | Forbidden operations that could bypass approval | Hard gate; any violation blocks |
+| Outcome | Signal F1, action F1, weighted business-utility coverage | Minimum outcome quality |
+| Cost | Tool/model/retrieval cost units and end-to-end node latency | Policy and case budgets |
+
+Candidate score must also remain within the total and per-layer regression tolerances of a freshly replayed active baseline. See [docs/harness.md](docs/harness.md) for schemas, formulas, and extension instructions.
+
+## Runtime architecture
 
 ```mermaid
 flowchart LR
@@ -23,40 +58,49 @@ flowchart LR
     W --> M[Metrics tool]
     W --> I[Inventory tool]
     W --> C[Campaign tool]
-    M --> D[Policy-driven diagnosis]
+    M --> D[Deterministic diagnosis]
     I --> D
     C --> D
-    D --> R[Playbook retrieval / RAG]
-    R --> S[Local or LLM synthesis]
-    S --> G{Risk and permission gate}
+    D --> R[Hybrid hierarchical RAG]
+    R --> S[Local or Eino LLM synthesis]
+    S --> G{Risk gate}
     G -->|low risk| X[Execute tool]
-    G -->|medium / high risk| H[Durable human approval]
+    G -->|medium / high| H[Durable approval]
     H --> X
-    W --> T[(Run trajectory)]
+    W --> T[(Trajectory store)]
     X --> T
-    T --> F[Feedback + observed KPI]
-    F --> P[Policy candidate]
-    P --> E[Offline replay evaluation]
-    E -->|pass| Y[Canary]
-    Y --> Z[Promote or rollback]
 ```
 
-More detail is in [docs/architecture.md](docs/architecture.md) and the base-project decision is recorded in [docs/decision-log.md](docs/decision-log.md).
+The agent can discover allowlisted MCP SSE tools through Eino's official MCP adapter. Local demo identity headers model the authorization boundary; a real deployment should replace them with verified OIDC/JWT claims and tenant-scoped tool policies.
 
 ## Quick start
 
-Requirements: Go 1.24 or newer.
+Requirements: Go 1.25 or newer.
 
 ```bash
 go test ./...
 go run ./cmd/evoops demo
-go run ./cmd/evoops demo -approve
+go run ./cmd/evoops harness
+go run ./cmd/evoops evolve -canary 10
 go run ./cmd/evoops serve
 ```
 
-Open <http://localhost:8080>. The default store is `demo-store`.
+Open <http://localhost:8080>. Use `demo-store` for the compound failure case or one of `healthy-store`, `traffic-store`, `stock-store`, and `campaign-refund-store` for isolated cases.
 
-No API key is required. To use a real OpenAI-compatible model:
+The `evolve` command executes:
+
+```text
+active baseline replay
+  → failure attribution
+  → allowlisted policy mutation
+  → candidate replay twice per case
+  → baseline/layer regression gates
+  → optional canary
+```
+
+It never promotes automatically. Promotion requires a separate admin action after canary assignment.
+
+To enable a real OpenAI-compatible narrative model:
 
 ```bash
 export OPENAI_API_KEY=your-key
@@ -67,37 +111,39 @@ go run ./cmd/evoops serve
 
 On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`.
 
-## Controlled evolution demo
+## Useful commands
 
 ```bash
-# Generate a candidate, run all replay cases, and start a 10% canary only if it passes.
+# Evaluate the active policy.
+go run ./cmd/evoops harness
+
+# Evaluate a stored candidate against a fresh active baseline.
+go run ./cmd/evoops harness -policy CANDIDATE_VERSION
+
+# Run the closed loop and assign 10% deterministic canary traffic if it passes.
 go run ./cmd/evoops evolve -canary 10
+
+# Verify production readiness of this repository.
+go test ./...
+go vet ./...
+go build ./cmd/evoops
 ```
-
-The command does **not** auto-promote. Promotion stays a separate admin action so an apparently good offline score cannot silently replace production policy.
-
-The evolution unit is a versioned policy containing:
-
-- anomaly thresholds;
-- approval risk threshold;
-- retrieval depth;
-- prompt revision and routing metadata.
-
-Application source code, tool implementations, and permission rules are outside the self-modifying boundary.
 
 ## HTTP API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/api/runs` | Run a diagnosis |
+| `POST` | `/api/runs` | Run a live diagnosis |
 | `POST` | `/api/runs/stream` | Receive a run as SSE events |
 | `GET` | `/api/runs/{id}` | Read the full trajectory |
 | `POST` | `/api/runs/{id}/approve` | Resume or reject guarded actions |
 | `POST` | `/api/runs/{id}/feedback` | Store usefulness, action, and KPI feedback |
-| `POST` | `/api/evolution/candidates` | Generate a policy candidate |
-| `POST` | `/api/evolution/evaluate/{version}` | Run the offline replay gate |
+| `GET` | `/api/harness/reports` | List persisted five-layer reports |
+| `POST` | `/api/harness/run/{version}` | Evaluate a policy against the active baseline |
+| `POST` | `/api/evolution/run` | Execute attribution → candidate → Harness → optional canary |
+| `GET` | `/api/evolution/runs` | List complete evolution records |
 | `POST` | `/api/evolution/canary/{version}` | Assign deterministic canary traffic |
-| `POST` | `/api/evolution/promote/{version}` | Promote an evaluated/canary policy |
+| `POST` | `/api/evolution/promote/{version}` | Promote a canaried policy with a valid release credential |
 | `POST` | `/api/evolution/rollback` | Restore the previous active policy |
 
 Approval example:
@@ -110,49 +156,38 @@ curl -X POST http://localhost:8080/api/runs/RUN_ID/approve \
   -d '{"approved":true,"reason":"metrics and scope reviewed"}'
 ```
 
-The header-based identity is a local-demo adapter, not a production authentication system. Replace it with verified JWT/OIDC claims at the HTTP boundary; the domain gate can remain unchanged.
-
 ## MCP tools
-
-Connect one or more MCP SSE endpoints:
 
 ```bash
 export EVOOPS_MCP_SSE_URLS=http://localhost:3001/sse,http://localhost:3002/sse
 export EVOOPS_MCP_TOOL_ALLOWLIST=lookup_order,create_ticket
 ```
 
-EvoOps initializes the official MCP client, discovers allowed tools, converts them to Eino tools, and exposes them through `/api/tools`. Production deployments should always set an allowlist and apply the same risk classification used for local execution tools.
+Discovered tools enter the same Eino registry as local tools. Production systems should enforce allowlists during discovery and authorization/argument policy again during invocation.
 
 ## Repository layout
 
 ```text
 cmd/evoops/             CLI and HTTP entry point
-data/demo/              synthetic store and replay cases
-docs/                   architecture and engineering decisions
-internal/agent/         Eino workflow, diagnosis and model adapter
-internal/dataset/       business data and operation adapter
-internal/evolution/     candidate generation and replay evaluation
-internal/httpapi/       API, RBAC gate and embedded trajectory UI
-internal/policy/        version selection, canary, promotion, rollback
-internal/repository/    durable JSON run/policy/feedback/eval store
-internal/tools/         Eino local tools and MCP discovery
+data/demo/              synthetic commerce stores and playbooks
+data/harness/           versioned labeled Harness cases
+docs/                   architecture, Harness, evolution, decisions
+internal/agent/         Eino workflow, replay mode, diagnosis, synthesis
+internal/retrieval/     dense + BM25 + RRF + auto-merge + reranking
+internal/harness/       five-layer scoring, fingerprints, attribution
+internal/evolution/     baseline/candidate evaluation and release loop
+internal/policy/        mutation constraints, credentials, canary, rollback
+internal/repository/    atomic JSON trajectory/report/policy persistence
+internal/httpapi/       API, role gate, embedded operations console
+internal/tools/         typed Eino tools and MCP discovery
 ```
 
-## Quality checks
+## Engineering boundaries
 
-```bash
-go test ./...
-go vet ./...
-go build ./cmd/evoops
-```
+The local corpus and hashed dense vectorizer keep CI deterministic; the retriever boundary can be replaced by an embedding service/vector database while preserving the same retrieval trace and Harness contract. The file repository uses locked atomic replacement; PostgreSQL plus a distributed checkpoint/queue is the natural multi-instance implementation. The SSE demo buffers the completed trajectory; production streaming should emit live workflow callbacks.
 
-The tests cover healthy/anomalous diagnosis, guarded execution and approval resume, durable traces, repository persistence, permission enforcement, replay evaluation, canary promotion, and rollback.
-
-## Production extensions
-
-The MVP keeps infrastructure local so it is easy to inspect. The next production-oriented increments are PostgreSQL-backed storage, Redis/distributed checkpointing, OpenTelemetry export, JWT/OIDC authorization, live rather than buffered SSE events, embedding/vector retrieval, outcome-window scheduling, and load/fault testing.
+Detailed design is in [docs/architecture.md](docs/architecture.md), [docs/self-evolution.md](docs/self-evolution.md), and [docs/decision-log.md](docs/decision-log.md).
 
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
-

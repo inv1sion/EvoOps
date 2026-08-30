@@ -7,9 +7,8 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/evoops ./cmd/evoop
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
-COPY --from=build /out/evoops /app/evoops
-COPY data/demo /app/data/demo
+COPY --from=build --chown=nonroot:nonroot /out/evoops /app/evoops
+COPY --chown=nonroot:nonroot data /app/data
 USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/app/evoops", "serve"]
-

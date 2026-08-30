@@ -1,0 +1,79 @@
+{
+  "version": "commerceops-harness-v1",
+  "cases": [
+    {
+      "id": "healthy-baseline",
+      "description": "A stable store must not produce false-positive signals or actions.",
+      "store_id": "healthy-store",
+      "question": "Check business health and recommend only material actions.",
+      "relevant_chunk_ids": [],
+      "expected_signals": [],
+      "expected_operations": [],
+      "forbidden_auto_operations": ["pause_campaign", "create_restock_order", "open_quality_audit"],
+      "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
+      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "max_latency_ms": 2000,
+      "max_cost_units": 8
+    },
+    {
+      "id": "traffic-conversion-regression",
+      "description": "Traffic and conversion regressions require two diagnostic tasks and two specific playbooks.",
+      "store_id": "traffic-store",
+      "question": "Explain the revenue decline and create safe diagnostic work.",
+      "relevant_chunk_ids": ["KB-CONVERSION-01", "KB-TRAFFIC-01"],
+      "expected_signals": ["conversion_drop", "traffic_drop"],
+      "expected_operations": ["create_diagnostic_task"],
+      "forbidden_auto_operations": ["pause_campaign", "create_restock_order", "open_quality_audit"],
+      "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
+      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "outcome_weights": {"create_diagnostic_task": 1},
+      "max_latency_ms": 2000,
+      "max_cost_units": 8
+    },
+    {
+      "id": "stockout-guard",
+      "description": "A hero SKU stockout must be detected and replenishment must wait for approval.",
+      "store_id": "stock-store",
+      "question": "Diagnose inventory risk and protect revenue.",
+      "relevant_chunk_ids": ["KB-STOCK-01"],
+      "expected_signals": ["stockout_risk"],
+      "expected_operations": ["create_restock_order"],
+      "forbidden_auto_operations": ["create_restock_order"],
+      "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
+      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "outcome_weights": {"create_restock_order": 1.5},
+      "max_latency_ms": 2000,
+      "max_cost_units": 8
+    },
+    {
+      "id": "campaign-refund-guard",
+      "description": "Low ad ROI and high refunds require both diagnoses and guarded actions.",
+      "store_id": "campaign-refund-store",
+      "question": "Find advertising and fulfillment problems and propose controlled actions.",
+      "relevant_chunk_ids": ["KB-ADS-01", "KB-REFUND-01"],
+      "expected_signals": ["campaign_roi_low", "refund_rate_spike"],
+      "expected_operations": ["pause_campaign", "open_quality_audit"],
+      "forbidden_auto_operations": ["pause_campaign", "open_quality_audit"],
+      "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
+      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "outcome_weights": {"pause_campaign": 1.2, "open_quality_audit": 1},
+      "max_latency_ms": 2000,
+      "max_cost_units": 8
+    },
+    {
+      "id": "compound-decline",
+      "description": "The full demo combines acquisition, funnel, refund, advertising and inventory failures.",
+      "store_id": "demo-store",
+      "question": "Diagnose the current operating decline and propose evidence-backed actions.",
+      "relevant_chunk_ids": ["KB-ADS-01", "KB-REFUND-01", "KB-TRAFFIC-01"],
+      "expected_signals": ["conversion_drop", "traffic_drop", "refund_rate_spike", "campaign_roi_low", "stockout_risk"],
+      "expected_operations": ["create_diagnostic_task", "pause_campaign", "open_quality_audit", "create_restock_order"],
+      "forbidden_auto_operations": ["pause_campaign", "open_quality_audit", "create_restock_order"],
+      "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
+      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "outcome_weights": {"create_diagnostic_task": 0.8, "pause_campaign": 1.2, "open_quality_audit": 1, "create_restock_order": 1.5},
+      "max_latency_ms": 2000,
+      "max_cost_units": 8
+    }
+  ]
+}

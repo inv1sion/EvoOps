@@ -15,7 +15,7 @@ type AnalysisContext struct {
 	Metrics   domain.MetricsSnapshot
 	Inventory []domain.InventoryItem
 	Campaigns []domain.Campaign
-	Knowledge []domain.KnowledgeArticle
+	Knowledge domain.RetrievalResult
 }
 
 type Analysis struct {
@@ -107,17 +107,22 @@ func Analyze(context AnalysisContext, policy domain.Policy) Analysis {
 	return analysis
 }
 
-func AddKnowledgeEvidence(analysis *Analysis, articles []domain.KnowledgeArticle) {
-	for _, article := range articles {
+func AddKnowledgeEvidence(analysis *Analysis, result domain.RetrievalResult) {
+	for _, hit := range result.Hits {
 		analysis.Evidence = append(analysis.Evidence, domain.Evidence{
-			ID: "kb:" + article.ID, Source: tools.ToolKnowledge, Ref: article.Title, Excerpt: article.Content,
+			ID: "kb:" + hit.Chunk.ID, Source: tools.ToolKnowledge, Ref: hit.Chunk.Title, Excerpt: hit.Chunk.Text,
 		})
 	}
 }
 
 func signalQuery(signals []domain.Signal) string {
-	parts := make([]string, 0, len(signals))
-	for _, signal := range signals {
+	const maxSignalsPerRetrieval = 3
+	limit := len(signals)
+	if limit > maxSignalsPerRetrieval {
+		limit = maxSignalsPerRetrieval
+	}
+	parts := make([]string, 0, limit)
+	for _, signal := range signals[:limit] {
 		parts = append(parts, strings.ReplaceAll(signal.Name, "_", " "))
 	}
 	if len(parts) == 0 {

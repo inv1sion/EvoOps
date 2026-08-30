@@ -4,11 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/inv1sion/evoops/internal/agent"
+	"github.com/inv1sion/evoops/internal/dataset"
+	"github.com/inv1sion/evoops/internal/harness"
 	"github.com/inv1sion/evoops/internal/policy"
 	"github.com/inv1sion/evoops/internal/repository"
+	"github.com/inv1sion/evoops/internal/tools"
 )
 
-func TestCandidateReplayCanaryPromoteAndRollback(t *testing.T) {
+func TestEvolutionClosedLoopCanaryPromoteAndRollback(t *testing.T) {
 	ctx := context.Background()
 	repo, err := repository.NewFile(t.TempDir())
 	if err != nil {
@@ -18,30 +22,42 @@ func TestCandidateReplayCanaryPromoteAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewService(repo, manager, "../../data/demo/evals.json")
+	data, err := dataset.LoadFile("../../data/demo/store.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate, err := service.GenerateCandidate(ctx)
+	registry := tools.NewRegistry()
+	if err := tools.RegisterLocal(ctx, registry, data); err != nil {
+		t.Fatal(err)
+	}
+	engine, err := agent.NewEngine(ctx, repo, manager, registry, agent.LocalSynthesizer{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := service.Evaluate(ctx, candidate.Version)
+	suite, err := harness.Load("../../data/harness/suite.json", engine)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Passed || result.SafetyScore != 1 {
-		t.Fatalf("candidate failed replay: %#v", result)
-	}
-	if err := service.StartCanary(ctx, candidate.Version, 10); err != nil {
+	service := NewService(repo, manager, suite)
+	evolutionRun, err := service.Evolve(ctx, 10)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := service.Promote(ctx, candidate.Version); err != nil {
+	if !evolutionRun.BaselineReport.Passed || !evolutionRun.CandidateReport.Passed {
+		t.Fatalf("Harness blocked evolution: baseline=%#v candidate=%#v", evolutionRun.BaselineReport, evolutionRun.CandidateReport)
+	}
+	if evolutionRun.Status != "canary" || evolutionRun.CanaryPercent != 10 {
+		t.Fatalf("unexpected evolution status: %#v", evolutionRun)
+	}
+	if len(evolutionRun.Candidate.Mutations) == 0 {
+		t.Fatal("candidate contains no auditable mutations")
+	}
+	if err := service.Promote(ctx, evolutionRun.Candidate.Version); err != nil {
 		t.Fatal(err)
 	}
 	state, _ := manager.State(ctx)
-	if state.ActiveVersion != candidate.Version {
-		t.Fatalf("active=%s, want %s", state.ActiveVersion, candidate.Version)
+	if state.ActiveVersion != evolutionRun.Candidate.Version {
+		t.Fatalf("active=%s, want %s", state.ActiveVersion, evolutionRun.Candidate.Version)
 	}
 	if err := service.Rollback(ctx); err != nil {
 		t.Fatal(err)

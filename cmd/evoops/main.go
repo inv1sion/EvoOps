@@ -31,8 +31,10 @@ func main() {
 		demo(os.Args[2:])
 	case "evolve":
 		evolve(os.Args[2:])
+	case "harness":
+		runHarness(os.Args[2:])
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q\nusage: evoops [serve|demo|evolve]\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "unknown command %q\nusage: evoops [serve|demo|harness|evolve]\n", os.Args[1])
 		os.Exit(2)
 	}
 }
@@ -97,20 +99,32 @@ func evolve(args []string) {
 	ctx := context.Background()
 	application := bootstrap(ctx)
 	defer application.Close()
-	candidate, err := application.Evolution.GenerateCandidate(ctx)
+	run, err := application.Evolution.Evolve(ctx, *canary)
 	if err != nil {
 		log.Fatal(err)
 	}
-	result, err := application.Evolution.Evaluate(ctx, candidate.Version)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if result.Passed && *canary > 0 {
-		if err := application.Evolution.StartCanary(ctx, candidate.Version, *canary); err != nil {
+	printJSON(run)
+}
+
+func runHarness(args []string) {
+	flags := flag.NewFlagSet("harness", flag.ExitOnError)
+	version := flags.String("policy", "", "policy version; defaults to active")
+	_ = flags.Parse(args)
+	ctx := context.Background()
+	application := bootstrap(ctx)
+	defer application.Close()
+	if *version == "" {
+		state, err := application.Policies.State(ctx)
+		if err != nil {
 			log.Fatal(err)
 		}
+		*version = state.ActiveVersion
 	}
-	printJSON(map[string]any{"candidate": candidate, "evaluation": result, "canary_percent": *canary})
+	report, err := application.Evolution.RunHarness(ctx, *version)
+	if err != nil {
+		log.Fatal(err)
+	}
+	printJSON(report)
 }
 
 func printJSON(value any) {

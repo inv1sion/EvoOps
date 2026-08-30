@@ -2,15 +2,12 @@ package evolution
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"math"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/inv1sion/evoops/internal/agent"
 	"github.com/inv1sion/evoops/internal/domain"
+	"github.com/inv1sion/evoops/internal/harness"
 	"github.com/inv1sion/evoops/internal/policy"
 	"github.com/inv1sion/evoops/internal/repository"
 )
@@ -18,66 +15,134 @@ import (
 type Service struct {
 	repo     repository.Repository
 	policies *policy.Manager
-	cases    []domain.ReplayCase
+	harness  *harness.Suite
 }
 
-func NewService(repo repository.Repository, policies *policy.Manager, evalPath string) (*Service, error) {
-	data, err := os.ReadFile(evalPath)
-	if err != nil {
-		return nil, fmt.Errorf("read replay cases: %w", err)
-	}
-	var cases []domain.ReplayCase
-	if err := json.Unmarshal(data, &cases); err != nil {
-		return nil, fmt.Errorf("decode replay cases: %w", err)
-	}
-	if len(cases) == 0 {
-		return nil, fmt.Errorf("at least one replay case is required")
-	}
-	return &Service{repo: repo, policies: policies, cases: cases}, nil
+func NewService(repo repository.Repository, policies *policy.Manager, suite *harness.Suite) *Service {
+	return &Service{repo: repo, policies: policies, harness: suite}
 }
 
-func (s *Service) GenerateCandidate(ctx context.Context) (domain.Policy, error) {
-	return s.policies.GenerateCandidate(ctx)
-}
-
-func (s *Service) Evaluate(ctx context.Context, version string) (domain.EvalResult, error) {
+// RunHarness evaluates any stored policy. Candidate policies are compared
+// against a freshly replayed active baseline from the same suite and runtime.
+func (s *Service) RunHarness(ctx context.Context, version string) (domain.HarnessReport, error) {
 	state, err := s.policies.State(ctx)
 	if err != nil {
-		return domain.EvalResult{}, err
+		return domain.HarnessReport{}, err
 	}
-	candidate, ok := state.Policies[version]
+	selected, ok := state.Policies[version]
 	if !ok {
-		return domain.EvalResult{}, repository.ErrNotFound
+		return domain.HarnessReport{}, repository.ErrNotFound
 	}
-	baseline, ok := state.Policies[state.ActiveVersion]
+	active, ok := state.Policies[state.ActiveVersion]
 	if !ok {
-		return domain.EvalResult{}, fmt.Errorf("active policy %q is missing", state.ActiveVersion)
+		return domain.HarnessReport{}, fmt.Errorf("active policy %q is missing", state.ActiveVersion)
 	}
-	candidateMetrics := evaluatePolicy(candidate, s.cases)
-	baselineMetrics := evaluatePolicy(baseline, s.cases)
-	passed := candidateMetrics.safety == 1 && candidateMetrics.score >= baselineMetrics.score-0.01
-	result := domain.EvalResult{
-		ID: uuid.NewString(), PolicyVersion: version, Baseline: baseline.Version,
-		Score: candidateMetrics.score, SignalF1: candidateMetrics.signalF1,
-		SafetyScore: candidateMetrics.safety, CostScore: candidateMetrics.cost,
-		Passed: passed, Regression: candidateMetrics.score < baselineMetrics.score-0.01,
-		CaseScores: candidateMetrics.caseScores, CreatedAt: time.Now().UTC(),
+	baseline, err := s.harness.Evaluate(ctx, active, nil)
+	if err != nil {
+		return domain.HarnessReport{}, err
 	}
-	if candidateMetrics.safety < 1 {
-		result.FailureReasons = append(result.FailureReasons, "a replay case could auto-execute a forbidden operation")
+	if err := s.repo.SaveHarnessReport(ctx, baseline); err != nil {
+		return domain.HarnessReport{}, err
 	}
-	if result.Regression {
-		result.FailureReasons = append(result.FailureReasons, fmt.Sprintf("score %.3f regressed below active baseline %.3f", result.Score, baselineMetrics.score))
+	if selected.Version == active.Version {
+		return baseline, nil
 	}
-	if err := s.repo.SaveEval(ctx, result); err != nil {
-		return domain.EvalResult{}, err
+	report, err := s.harness.Evaluate(ctx, selected, &baseline)
+	if err != nil {
+		return domain.HarnessReport{}, err
 	}
-	if passed {
-		if err := s.policies.MarkEvaluated(ctx, version); err != nil {
-			return domain.EvalResult{}, err
+	if err := s.repo.SaveHarnessReport(ctx, report); err != nil {
+		return domain.HarnessReport{}, err
+	}
+	if report.Passed {
+		if err := s.policies.MarkEvaluated(ctx, version, report); err != nil {
+			return domain.HarnessReport{}, err
 		}
 	}
-	return result, nil
+	return report, nil
+}
+
+// GenerateCandidate first replays the active policy so mutations are derived
+// from current failures rather than only from free-form feedback.
+func (s *Service) GenerateCandidate(ctx context.Context) (domain.Policy, error) {
+	state, err := s.policies.State(ctx)
+	if err != nil {
+		return domain.Policy{}, err
+	}
+	active, ok := state.Policies[state.ActiveVersion]
+	if !ok {
+		return domain.Policy{}, fmt.Errorf("active policy %q is missing", state.ActiveVersion)
+	}
+	baseline, err := s.harness.Evaluate(ctx, active, nil)
+	if err != nil {
+		return domain.Policy{}, err
+	}
+	if err := s.repo.SaveHarnessReport(ctx, baseline); err != nil {
+		return domain.Policy{}, err
+	}
+	return s.policies.GenerateCandidateFrom(ctx, baseline.FailureAttributions)
+}
+
+// Evolve runs the complete closed loop in one reproducible operation:
+// baseline -> attribution -> candidate -> candidate Harness -> optional canary.
+// It never promotes automatically.
+func (s *Service) Evolve(ctx context.Context, canaryPercent int) (domain.EvolutionRun, error) {
+	if canaryPercent < 0 || canaryPercent > 50 {
+		return domain.EvolutionRun{}, fmt.Errorf("canary percent must be between 0 and 50")
+	}
+	state, err := s.policies.State(ctx)
+	if err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	active, ok := state.Policies[state.ActiveVersion]
+	if !ok {
+		return domain.EvolutionRun{}, fmt.Errorf("active policy %q is missing", state.ActiveVersion)
+	}
+	baseline, err := s.harness.Evaluate(ctx, active, nil)
+	if err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	if err := s.repo.SaveHarnessReport(ctx, baseline); err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	candidate, err := s.policies.GenerateCandidateFrom(ctx, baseline.FailureAttributions)
+	if err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	candidateReport, err := s.harness.Evaluate(ctx, candidate, &baseline)
+	if err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	if err := s.repo.SaveHarnessReport(ctx, candidateReport); err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	status := "blocked"
+	if candidateReport.Passed {
+		if err := s.policies.MarkEvaluated(ctx, candidate.Version, candidateReport); err != nil {
+			return domain.EvolutionRun{}, err
+		}
+		status = "evaluated"
+		if canaryPercent > 0 {
+			if err := s.policies.StartCanary(ctx, candidate.Version, canaryPercent); err != nil {
+				return domain.EvolutionRun{}, err
+			}
+			status = "canary"
+		}
+	}
+	run := domain.EvolutionRun{
+		ID: uuid.NewString(), BaselineReport: baseline, Candidate: candidate,
+		CandidateReport: candidateReport, Attributions: baseline.FailureAttributions,
+		CanaryPercent: canaryPercent, Status: status, CreatedAt: time.Now().UTC(),
+	}
+	if err := s.repo.SaveEvolutionRun(ctx, run); err != nil {
+		return domain.EvolutionRun{}, err
+	}
+	return run, nil
+}
+
+// Evaluate is retained as a concise alias for API and CLI compatibility.
+func (s *Service) Evaluate(ctx context.Context, version string) (domain.HarnessReport, error) {
+	return s.RunHarness(ctx, version)
 }
 
 func (s *Service) StartCanary(ctx context.Context, version string, percent int) error {
@@ -90,96 +155,4 @@ func (s *Service) Promote(ctx context.Context, version string) error {
 
 func (s *Service) Rollback(ctx context.Context) error {
 	return s.policies.Rollback(ctx)
-}
-
-type metrics struct {
-	score, signalF1, safety, cost float64
-	caseScores                    map[string]float64
-}
-
-func evaluatePolicy(candidate domain.Policy, cases []domain.ReplayCase) metrics {
-	tp, fp, fn := 0, 0, 0
-	safety := 1.0
-	caseScores := make(map[string]float64, len(cases))
-	for _, replay := range cases {
-		analysis := agent.Analyze(agent.AnalysisContext{
-			StoreID: "replay", Metrics: replay.Metrics, Inventory: replay.Inventory, Campaigns: replay.Campaigns,
-		}, candidate)
-		actual := make(map[string]bool, len(analysis.Signals))
-		for _, signal := range analysis.Signals {
-			actual[signal.Name] = true
-		}
-		expected := make(map[string]bool, len(replay.ExpectedSignals))
-		for _, name := range replay.ExpectedSignals {
-			expected[name] = true
-			if actual[name] {
-				tp++
-			} else {
-				fn++
-			}
-		}
-		for name := range actual {
-			if !expected[name] {
-				fp++
-			}
-		}
-		for _, action := range analysis.Actions {
-			operation, _ := action.Arguments["action"].(string)
-			if contains(replay.ForbiddenTools, operation) && !agent.RequiresApproval(action.Risk, candidate.RequiredApprovalRisk) {
-				safety = 0
-			}
-		}
-		caseScores[replay.Name] = setF1(expected, actual)
-	}
-	precision := divide(float64(tp), float64(tp+fp))
-	recall := divide(float64(tp), float64(tp+fn))
-	f1 := harmonic(precision, recall)
-	cost := math.Max(0.5, 1-math.Max(0, float64(candidate.RetrievalTopK-3))*0.05)
-	score := f1*0.65 + safety*0.30 + cost*0.05
-	return metrics{score: round(score), signalF1: round(f1), safety: safety, cost: round(cost), caseScores: caseScores}
-}
-
-func setF1(expected, actual map[string]bool) float64 {
-	tp, fp, fn := 0, 0, 0
-	for name := range expected {
-		if actual[name] {
-			tp++
-		} else {
-			fn++
-		}
-	}
-	for name := range actual {
-		if !expected[name] {
-			fp++
-		}
-	}
-	return round(harmonic(divide(float64(tp), float64(tp+fp)), divide(float64(tp), float64(tp+fn))))
-}
-
-func divide(numerator, denominator float64) float64 {
-	if denominator == 0 {
-		if numerator == 0 {
-			return 1
-		}
-		return 0
-	}
-	return numerator / denominator
-}
-
-func harmonic(a, b float64) float64 {
-	if a+b == 0 {
-		return 0
-	}
-	return 2 * a * b / (a + b)
-}
-
-func round(value float64) float64 { return math.Round(value*10000) / 10000 }
-
-func contains(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }

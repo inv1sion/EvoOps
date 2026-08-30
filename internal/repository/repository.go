@@ -23,8 +23,10 @@ type Repository interface {
 	ListFeedback(context.Context) ([]domain.Feedback, error)
 	SavePolicyState(context.Context, domain.PolicyState) error
 	LoadPolicyState(context.Context) (domain.PolicyState, error)
-	SaveEval(context.Context, domain.EvalResult) error
-	ListEvals(context.Context) ([]domain.EvalResult, error)
+	SaveHarnessReport(context.Context, domain.HarnessReport) error
+	ListHarnessReports(context.Context) ([]domain.HarnessReport, error)
+	SaveEvolutionRun(context.Context, domain.EvolutionRun) error
+	ListEvolutionRuns(context.Context) ([]domain.EvolutionRun, error)
 }
 
 type FileRepository struct {
@@ -33,7 +35,7 @@ type FileRepository struct {
 }
 
 func NewFile(root string) (*FileRepository, error) {
-	for _, dir := range []string{"runs", "feedback", "evals"} {
+	for _, dir := range []string{"runs", "feedback", "harness", "evolution"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
 			return nil, fmt.Errorf("create repository directory: %w", err)
 		}
@@ -121,18 +123,42 @@ func (r *FileRepository) LoadPolicyState(_ context.Context) (domain.PolicyState,
 	return state, nil
 }
 
-func (r *FileRepository) SaveEval(_ context.Context, result domain.EvalResult) error {
+func (r *FileRepository) SaveHarnessReport(_ context.Context, report domain.HarnessReport) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return writeJSON(filepath.Join(r.root, "evals", result.ID+".json"), result)
+	return writeJSON(filepath.Join(r.root, "harness", report.ID+".json"), report)
 }
 
-func (r *FileRepository) ListEvals(_ context.Context) ([]domain.EvalResult, error) {
+func (r *FileRepository) ListHarnessReports(_ context.Context) ([]domain.HarnessReport, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	var result []domain.EvalResult
-	if err := readDirectory(filepath.Join(r.root, "evals"), func(path string) error {
-		var item domain.EvalResult
+	var result []domain.HarnessReport
+	if err := readDirectory(filepath.Join(r.root, "harness"), func(path string) error {
+		var item domain.HarnessReport
+		if err := readJSON(path, &item); err != nil {
+			return err
+		}
+		result = append(result, item)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.After(result[j].CreatedAt) })
+	return result, nil
+}
+
+func (r *FileRepository) SaveEvolutionRun(_ context.Context, run domain.EvolutionRun) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return writeJSON(filepath.Join(r.root, "evolution", run.ID+".json"), run)
+}
+
+func (r *FileRepository) ListEvolutionRuns(_ context.Context) ([]domain.EvolutionRun, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var result []domain.EvolutionRun
+	if err := readDirectory(filepath.Join(r.root, "evolution"), func(path string) error {
+		var item domain.EvolutionRun
 		if err := readJSON(path, &item); err != nil {
 			return err
 		}

@@ -45,7 +45,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/runs/{id}/approve", s.approveRun)
 	s.mux.HandleFunc("POST /api/runs/{id}/feedback", s.feedback)
 	s.mux.HandleFunc("GET /api/policies", s.listPolicies)
-	s.mux.HandleFunc("GET /api/evals", s.listEvals)
+	s.mux.HandleFunc("GET /api/harness/reports", s.listHarnessReports)
+	s.mux.HandleFunc("POST /api/harness/run/{version}", s.evaluate)
+	s.mux.HandleFunc("GET /api/evolution/runs", s.listEvolutionRuns)
+	s.mux.HandleFunc("POST /api/evolution/run", s.runEvolution)
 	s.mux.HandleFunc("POST /api/evolution/candidates", s.generateCandidate)
 	s.mux.HandleFunc("POST /api/evolution/evaluate/{version}", s.evaluate)
 	s.mux.HandleFunc("POST /api/evolution/canary/{version}", s.canary)
@@ -158,9 +161,28 @@ func (s *Server) listPolicies(w http.ResponseWriter, r *http.Request) {
 	respond(w, state, err)
 }
 
-func (s *Server) listEvals(w http.ResponseWriter, r *http.Request) {
-	items, err := s.app.Repo.ListEvals(r.Context())
+func (s *Server) listHarnessReports(w http.ResponseWriter, r *http.Request) {
+	items, err := s.app.Repo.ListHarnessReports(r.Context())
 	respond(w, items, err)
+}
+
+func (s *Server) listEvolutionRuns(w http.ResponseWriter, r *http.Request) {
+	items, err := s.app.Repo.ListEvolutionRuns(r.Context())
+	respond(w, items, err)
+}
+
+func (s *Server) runEvolution(w http.ResponseWriter, r *http.Request) {
+	if !requireRole(w, r, "admin") {
+		return
+	}
+	var request struct {
+		CanaryPercent int `json:"canary_percent"`
+	}
+	if !decode(w, r, &request) {
+		return
+	}
+	run, err := s.app.Evolution.Evolve(r.Context(), request.CanaryPercent)
+	respond(w, run, err)
 }
 
 func (s *Server) generateCandidate(w http.ResponseWriter, r *http.Request) {
