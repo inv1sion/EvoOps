@@ -11,6 +11,10 @@ import (
 	"github.com/inv1sion/evoops/internal/tools"
 )
 
+type traceableSynthesizer struct{ LocalSynthesizer }
+
+func (traceableSynthesizer) ModelName() string { return "qwen-test" }
+
 func TestEngineEndToEndApprovalAndTrajectory(t *testing.T) {
 	ctx := context.Background()
 	repo, err := repository.NewFile(t.TempDir())
@@ -29,7 +33,7 @@ func TestEngineEndToEndApprovalAndTrajectory(t *testing.T) {
 	if err := tools.RegisterLocal(ctx, registry, data); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := NewEngine(ctx, repo, policies, registry, LocalSynthesizer{})
+	engine, err := NewEngine(ctx, repo, policies, registry, traceableSynthesizer{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,6 +46,9 @@ func TestEngineEndToEndApprovalAndTrajectory(t *testing.T) {
 	}
 	if len(run.Steps) != 5 {
 		t.Fatalf("steps=%d, want 5", len(run.Steps))
+	}
+	if modelName, _ := run.Steps[3].Input["model"].(string); modelName != "qwen-test" {
+		t.Fatalf("synthesis model is missing from trajectory: %#v", run.Steps[3].Input)
 	}
 	if run.PendingApproval == nil || len(run.PendingApproval.ActionIDs) == 0 {
 		t.Fatal("expected durable pending approval")

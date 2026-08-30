@@ -9,7 +9,7 @@ import (
 
 const (
 	DefaultOpenAIBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-	DefaultOpenAIModel   = "qwen3.7-plus"
+	DefaultOpenAIModel   = "qwen3.7-flash-2026-07-15"
 )
 
 type Config struct {

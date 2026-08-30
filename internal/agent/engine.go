@@ -227,7 +227,11 @@ func (e *Engine) retrieve(ctx context.Context, state *execution) (*execution, er
 }
 
 func (e *Engine) synthesize(ctx context.Context, state *execution) (*execution, error) {
-	step := e.beginStep(state.Run, "synthesize_plan", "model", map[string]any{"provider": e.synthesizer.Name(), "prompt_revision": state.Policy.PromptRevision})
+	input := map[string]any{"provider": e.synthesizer.Name(), "prompt_revision": state.Policy.PromptRevision}
+	if described, ok := e.synthesizer.(interface{ ModelName() string }); ok {
+		input["model"] = described.ModelName()
+	}
+	step := e.beginStep(state.Run, "synthesize_plan", "model", input)
 	summary, err := e.synthesizer.Synthesize(ctx, state.Request, state.Analysis)
 	if strings.TrimSpace(summary) != "" {
 		state.Analysis.Summary = summary

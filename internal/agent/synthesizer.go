@@ -27,8 +27,9 @@ func (LocalSynthesizer) Synthesize(_ context.Context, _ domain.DiagnosisRequest,
 func (LocalSynthesizer) Name() string { return "local-deterministic" }
 
 type EinoSynthesizer struct {
-	model    model.BaseChatModel
-	fallback LocalSynthesizer
+	model     model.BaseChatModel
+	modelName string
+	fallback  LocalSynthesizer
 }
 
 func NewEinoSynthesizer(ctx context.Context, apiKey, baseURL, modelName string) (*EinoSynthesizer, error) {
@@ -38,10 +39,12 @@ func NewEinoSynthesizer(ctx context.Context, apiKey, baseURL, modelName string) 
 	if err != nil {
 		return nil, err
 	}
-	return &EinoSynthesizer{model: chatModel}, nil
+	return &EinoSynthesizer{model: chatModel, modelName: modelName}, nil
 }
 
 func (s *EinoSynthesizer) Name() string { return "eino-openai-compatible" }
+
+func (s *EinoSynthesizer) ModelName() string { return s.modelName }
 
 func (s *EinoSynthesizer) Synthesize(ctx context.Context, request domain.DiagnosisRequest, analysis Analysis) (string, error) {
 	payload, err := json.Marshal(map[string]any{
