@@ -100,16 +100,14 @@ active baseline replay
 
 It never promotes automatically. Promotion requires a separate admin action after canary assignment.
 
-To enable a real OpenAI-compatible narrative model:
+The repository defaults to the configured Alibaba Cloud Model Studio compatible endpoint and `qwen3.7-plus`. Inject only the credential to enable it:
 
 ```bash
 export OPENAI_API_KEY=your-key
-export OPENAI_BASE_URL=https://your-compatible-endpoint/v1
-export OPENAI_MODEL=your-model
 go run ./cmd/evoops serve
 ```
 
-On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`.
+On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. `OPENAI_BASE_URL` and `OPENAI_MODEL` remain available as deployment-time overrides. Never commit a live key; `.env` is ignored by Git.
 
 ## Useful commands
 

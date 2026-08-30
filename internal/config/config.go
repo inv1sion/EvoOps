@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+const (
+	DefaultOpenAIBaseURL = "https://ws-k788cv37sfoh8o0q.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+	DefaultOpenAIModel   = "qwen3.7-plus"
+)
+
 type Config struct {
 	Address         string
 	DataDir         string
@@ -25,8 +30,8 @@ func Load() Config {
 		DemoDataPath:    env("EVOOPS_DEMO_DATA", "data/demo/store.json"),
 		HarnessDataPath: env("EVOOPS_HARNESS_DATA", "data/harness/suite.json"),
 		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
-		OpenAIBaseURL:   os.Getenv("OPENAI_BASE_URL"),
-		OpenAIModel:     env("OPENAI_MODEL", "gpt-4.1-mini"),
+		OpenAIBaseURL:   env("OPENAI_BASE_URL", DefaultOpenAIBaseURL),
+		OpenAIModel:     env("OPENAI_MODEL", DefaultOpenAIModel),
 		MCPSSEURLs:      csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
 		MCPAllowlist:    csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
 	}
