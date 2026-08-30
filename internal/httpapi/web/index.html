@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EvoOps · Traceable Operations Agent</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0a0d12; --panel:#111721; --panel2:#171f2b; --line:#263141; --text:#ecf1f8; --muted:#8d9bad; --cyan:#61dafb; --lime:#b4f36b; --amber:#f4bd62; --red:#ff7e87; }
+    * { box-sizing:border-box } body { margin:0; background:radial-gradient(circle at 10% -10%,#18313b 0,transparent 34%),var(--bg); color:var(--text); font:14px/1.5 Inter,ui-sans-serif,system-ui,sans-serif }
+    header { height:66px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:rgba(10,13,18,.85); backdrop-filter:blur(16px); position:sticky; top:0; z-index:3 }
+    .brand { font-weight:760; letter-spacing:.2px; font-size:18px }.brand span { color:var(--cyan) }.status { color:var(--muted); display:flex; gap:8px; align-items:center }.dot { width:8px; height:8px; background:var(--lime); border-radius:50%; box-shadow:0 0 12px var(--lime) }
+    main { max-width:1440px; margin:0 auto; padding:24px; display:grid; grid-template-columns:330px minmax(0,1fr); gap:20px }.panel { background:linear-gradient(145deg,rgba(23,31,43,.96),rgba(14,20,29,.96)); border:1px solid var(--line); border-radius:14px; box-shadow:0 18px 48px rgba(0,0,0,.2) }
+    aside { padding:20px; align-self:start; position:sticky; top:90px } h1 { font-size:28px; line-height:1.15; margin:0 0 10px } h2 { font-size:15px; margin:0 0 14px } p { color:var(--muted) } label { display:block; color:var(--muted); font-size:12px; margin:14px 0 6px }
+    input,textarea { width:100%; border:1px solid var(--line); background:#0d131c; color:var(--text); border-radius:9px; padding:10px 11px; outline:none } input:focus,textarea:focus { border-color:#3e7281 } textarea { resize:vertical; min-height:90px }
+    button { border:0; border-radius:9px; padding:10px 13px; font-weight:680; cursor:pointer; background:var(--cyan); color:#071016 } button.secondary { background:#253142; color:var(--text) } button.danger { background:#4b242a; color:#ffc1c5 } button:disabled { opacity:.45; cursor:wait }.buttons { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap }
+    .content { min-width:0; display:grid; gap:20px }.hero { padding:25px; min-height:146px; display:flex; justify-content:space-between; gap:20px }.eyebrow { color:var(--cyan); text-transform:uppercase; letter-spacing:1.4px; font-size:11px; font-weight:800 }.hero p { max-width:700px; margin-bottom:0 }.pill { display:inline-flex; border:1px solid var(--line); color:var(--muted); border-radius:999px; padding:4px 9px; margin:3px; font-size:12px }.policy { min-width:200px; text-align:right }
+    .grid { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(300px,.7fr); gap:20px }.section { padding:20px; min-width:0 }.empty { color:var(--muted); border:1px dashed var(--line); border-radius:10px; padding:30px; text-align:center }
+    .signal { border-left:3px solid var(--amber); padding:10px 12px; background:#121a25; margin:9px 0; border-radius:0 8px 8px 0 }.signal.high { border-color:var(--red) }.signal strong { display:flex; justify-content:space-between }.delta { color:var(--amber) }
+    .action { padding:12px; border:1px solid var(--line); border-radius:10px; margin:10px 0; background:#101722 }.action-head { display:flex; justify-content:space-between; gap:8px }.risk { font-size:11px; text-transform:uppercase; border-radius:99px; padding:2px 7px; background:#263242 }.risk.high { background:#4b242a;color:#ffc1c5 }.risk.medium { background:#493719;color:#ffe0a4 }.action small,.evidence small { color:var(--muted) }
+    .timeline { position:relative; padding-left:20px }.timeline:before { content:""; position:absolute; left:5px; top:8px; bottom:8px; width:1px; background:var(--line) }.step { position:relative; margin:0 0 16px }.step:before { content:""; position:absolute; left:-19px; top:6px; width:9px; height:9px; border-radius:50%; background:var(--cyan); box-shadow:0 0 0 4px #14242c }.step-title { display:flex; justify-content:space-between; gap:10px }.step pre { max-height:180px; overflow:auto; font-size:11px; white-space:pre-wrap; color:#adbac9; background:#0c121a; border-radius:8px; padding:10px }
+    .evidence { padding:9px 0; border-bottom:1px solid var(--line) }.evidence:last-child { border:0 }.toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px }.toast { position:fixed; right:24px; bottom:24px; padding:12px 16px; border-radius:10px; background:#20302b; border:1px solid #365648; opacity:0; transform:translateY(8px); transition:.2s; pointer-events:none }.toast.show { opacity:1; transform:none }
+    @media(max-width:900px){ main { grid-template-columns:1fr } aside { position:static }.grid { grid-template-columns:1fr }.hero { flex-direction:column }.policy { text-align:left } }
+  </style>
+</head>
+<body>
+<header><div class="brand">Evo<span>Ops</span></div><div class="status"><i class="dot"></i><span id="health">checking service</span></div></header>
+<main>
+  <aside class="panel">
+    <div class="eyebrow">Diagnosis request</div>
+    <h1>Evidence before action.</h1>
+    <p>Run the Eino workflow against a synthetic store. Low-risk tasks execute automatically; impactful operations pause for approval.</p>
+    <label for="store">Store ID</label><input id="store" value="demo-store">
+    <label for="question">Question</label><textarea id="question">Diagnose the current operating decline and propose evidence-backed actions.</textarea>
+    <div class="buttons"><button id="run">Run diagnosis</button><button class="secondary" id="refresh">Recent runs</button></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
+    <div class="toolbar"><h2>Controlled evolution</h2></div>
+    <p style="font-size:12px">Feedback → candidate policy → offline replay gate → canary. Promotion is intentionally separate.</p>
+    <div class="buttons"><button class="secondary" id="evolve">Generate + replay</button></div>
+    <div id="evolution" style="margin-top:12px;color:var(--muted);font-size:12px"></div>
+  </aside>
+  <section class="content">
+    <div class="panel hero">
+      <div><div class="eyebrow">Traceable operations copilot</div><h1 id="summary">Ready to inspect a business change.</h1><p id="runmeta">Every conclusion links to tool evidence and every execution is captured in the trajectory.</p></div>
+      <div class="policy"><span class="pill" id="status">idle</span><span class="pill" id="policy">policy —</span><span class="pill" id="runid">run —</span></div>
+    </div>
+    <div class="grid">
+      <div class="panel section"><div class="toolbar"><h2>Signals & actions</h2><div id="approval"></div></div><div id="signals" class="empty">No run selected.</div><div id="actions"></div></div>
+      <div class="panel section"><h2>Evidence</h2><div id="evidence" class="empty">Evidence appears after retrieval.</div></div>
+    </div>
+    <div class="panel section"><div class="toolbar"><h2>Execution trajectory</h2><span class="pill" id="stepcount">0 steps</span></div><div id="timeline" class="empty">The complete Eino node and tool trace will appear here.</div></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id); let current=null;
+const request=async(url,options={})=>{const res=await fetch(url,{headers:{'Content-Type':'application/json','X-EvoOps-Role':'admin','X-EvoOps-Actor':'local-console'},...options});const data=await res.json();if(!res.ok)throw new Error(data.error||res.statusText);return data};
+function toast(text){$('toast').textContent=text;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2200)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(run){current=run;const result=run.result||{};$('summary').textContent=result.summary||run.error||'Workflow is running';$('status').textContent=run.status;$('policy').textContent='policy '+run.policy_version;$('runid').textContent='run '+run.id.slice(0,8);$('runmeta').textContent=`Started ${new Date(run.started_at).toLocaleString()} · ${run.steps.length} traced steps`;
+ const signals=result.signals||[];$('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(s.name)}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):'No anomaly crossed the active thresholds.';
+ const actions=result.actions||[];$('actions').innerHTML=actions.map(a=>`<div class="action"><div class="action-head"><strong>${esc(a.title)}</strong><span class="risk ${esc(a.risk)}">${esc(a.risk)}</span></div><small>${esc(a.expected_impact)}</small><div style="margin-top:7px"><span class="pill">${esc(a.status)}</span><span class="pill">${esc(a.tool)}</span></div></div>`).join('');
+ const ev=result.evidence||[];$('evidence').className=ev.length?'':'empty';$('evidence').innerHTML=ev.length?ev.map(e=>`<div class="evidence"><strong>${esc(e.ref)}</strong><br><small>${esc(e.source)}</small><p>${esc(e.excerpt)}</p></div>`).join(''):'Evidence appears after retrieval.';
+ $('stepcount').textContent=run.steps.length+' steps';$('timeline').className=run.steps.length?'timeline':'empty';$('timeline').innerHTML=run.steps.length?run.steps.map(s=>`<div class="step"><div class="step-title"><strong>${esc(s.name)}</strong><small>${s.duration_ms} ms · ${esc(s.kind)}</small></div><small>${s.tool_calls?.length||0} tool calls${s.error?' · '+esc(s.error):''}</small><details><summary style="color:var(--muted);cursor:pointer">inspect payload</summary><pre>${esc(JSON.stringify({input:s.input,output:s.output,tool_calls:s.tool_calls},null,2))}</pre></details></div>`).join(''):'No trajectory.';
+ $('approval').innerHTML=run.status==='waiting_approval'?'<div class="buttons"><button onclick="approve(true)">Approve actions</button><button class="danger" onclick="approve(false)">Reject</button></div>':'';
+}
+async function run(){const b=$('run');b.disabled=true;b.textContent='Running…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value,window_days:7})}));toast('Diagnosis complete')}catch(e){toast(e.message)}finally{b.disabled=false;b.textContent='Run diagnosis'}}
+async function approve(approved){try{render(await request(`/api/runs/${current.id}/approve`,{method:'POST',body:JSON.stringify({approved,reason:approved?'Reviewed in EvoOps console':'Rejected in EvoOps console'})}));toast(approved?'Actions executed':'Actions rejected')}catch(e){toast(e.message)}}
+async function recent(){try{const runs=await request('/api/runs?limit=1');if(runs.length)render(runs[0]);else toast('No runs yet')}catch(e){toast(e.message)}}
+async function evolve(){const b=$('evolve');b.disabled=true;try{const c=await request('/api/evolution/candidates',{method:'POST',body:'{}'});const e=await request('/api/evolution/evaluate/'+encodeURIComponent(c.version),{method:'POST',body:'{}'});$('evolution').innerHTML=`<strong>${esc(c.version)}</strong><br>replay score ${e.score} · safety ${e.safety_score} · ${e.passed?'PASSED':'BLOCKED'}`;toast('Candidate replay complete')}catch(e){toast(e.message)}finally{b.disabled=false}}
+$('run').onclick=run;$('refresh').onclick=recent;$('evolve').onclick=evolve;
+request('/api/health').then(()=>$('health').textContent='service healthy').catch(()=>$('health').textContent='service unavailable');
+recent();
+</script>
+</body>
+</html>

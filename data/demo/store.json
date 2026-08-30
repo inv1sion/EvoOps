@@ -1,0 +1,105 @@
+[
+  {
+    "store_id": "demo-store",
+    "store_name": "Northstar Lifestyle",
+    "metrics": {
+      "current": {
+        "label": "last_7_days",
+        "revenue": 68000,
+        "orders": 660,
+        "visitors": 30000,
+        "conversion_rate": 0.022,
+        "refund_rate": 0.095,
+        "ad_spend": 18000,
+        "ad_revenue": 22600
+      },
+      "previous": {
+        "label": "previous_7_days",
+        "revenue": 90000,
+        "orders": 1092,
+        "visitors": 42000,
+        "conversion_rate": 0.026,
+        "refund_rate": 0.041,
+        "ad_spend": 17200,
+        "ad_revenue": 42100
+      }
+    },
+    "inventory": [
+      {
+        "sku": "SKU-HERO-01",
+        "name": "Hero insulated bottle",
+        "available": 42,
+        "daily_sales": 18,
+        "stockout_hours": 6,
+        "estimated_cover_days": 2.3,
+        "revenue_contribution_rate": 0.31
+      },
+      {
+        "sku": "SKU-BAG-02",
+        "name": "Everyday canvas bag",
+        "available": 520,
+        "daily_sales": 22,
+        "stockout_hours": 0,
+        "estimated_cover_days": 23.6,
+        "revenue_contribution_rate": 0.18
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "CMP-SEARCH-01",
+        "name": "Always-on search",
+        "status": "active",
+        "spend": 12100,
+        "revenue": 13700,
+        "roi": 1.13,
+        "previous_roi": 2.42,
+        "daily_budget": 1900,
+        "audience": "high-intent category search"
+      },
+      {
+        "id": "CMP-RETARGET-02",
+        "name": "Returning visitor retargeting",
+        "status": "active",
+        "spend": 5900,
+        "revenue": 8900,
+        "roi": 1.51,
+        "previous_roi": 1.62,
+        "daily_budget": 900,
+        "audience": "7-day returning visitors"
+      }
+    ],
+    "knowledge": [
+      {
+        "id": "KB-CONVERSION-01",
+        "title": "Conversion drop triage",
+        "content": "For conversion drop, segment by traffic source, device, product page and checkout step. Validate price, coupon eligibility and page latency before increasing traffic spend.",
+        "tags": ["conversion", "conversion drop", "funnel", "price"]
+      },
+      {
+        "id": "KB-TRAFFIC-01",
+        "title": "Traffic anomaly playbook",
+        "content": "For traffic drop, compare paid, organic, affiliate and returning-user cohorts. Check campaign delivery, ranking changes, content cadence and attribution breaks.",
+        "tags": ["traffic", "traffic drop", "visitors", "campaign"]
+      },
+      {
+        "id": "KB-STOCK-01",
+        "title": "Stockout risk control",
+        "content": "Prioritize replenishment by expected lost contribution, supplier lead time and substitution rate. High-impact purchase or replenishment operations require human approval.",
+        "tags": ["inventory", "stockout", "stockout risk", "replenishment"]
+      },
+      {
+        "id": "KB-ADS-01",
+        "title": "Low ROI campaign handling",
+        "content": "When campaign ROI is low, verify conversion tracking and marginal ROI first. Pause or budget changes are reversible but still require approval when spend impact is material.",
+        "tags": ["campaign", "campaign roi low", "roi", "advertising"]
+      },
+      {
+        "id": "KB-REFUND-01",
+        "title": "Refund rate diagnosis",
+        "content": "Split refunds by reason, SKU, supplier, warehouse and carrier. Preserve demand-side metrics while isolating fulfillment and product-quality causes.",
+        "tags": ["refund", "refund rate spike", "quality", "fulfillment"]
+      }
+    ]
+  }
+]
+
