@@ -1,6 +1,10 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestLoadUsesQwenWorkspaceDefaultsWithoutEmbeddingCredential(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
@@ -24,4 +28,22 @@ func TestLoadAllowsModelEndpointOverride(t *testing.T) {
 	if cfg.OpenAIBaseURL != "https://example.test/v1" || cfg.OpenAIModel != "test-model" {
 		t.Fatalf("environment override was ignored: %#v", cfg)
 	}
+}
+
+func TestLoadDotEnvUsesFileWithoutOverridingProcessEnvironment(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(path, []byte("EVOOPS_TEST_FILE_VALUE=from-file\nEVOOPS_TEST_EXISTING=from-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("EVOOPS_TEST_EXISTING", "from-process")
+	if err := loadDotEnv(path); err != nil {
+		t.Fatal(err)
+	}
+	if os.Getenv("EVOOPS_TEST_FILE_VALUE") != "from-file" {
+		t.Fatal("dotenv value was not loaded")
+	}
+	if os.Getenv("EVOOPS_TEST_EXISTING") != "from-process" {
+		t.Fatal("dotenv overrode an existing process variable")
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EVOOPS_TEST_FILE_VALUE") })
 }

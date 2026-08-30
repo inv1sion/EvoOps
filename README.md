@@ -100,14 +100,14 @@ active baseline replay
 
 It never promotes automatically. Promotion requires a separate admin action after canary assignment.
 
-The repository defaults to the configured Alibaba Cloud Model Studio compatible endpoint and `qwen3.7-plus`. Inject only the credential to enable it:
+The repository defaults to the configured Alibaba Cloud Model Studio compatible endpoint and `qwen3.7-plus`. Put the credential in the gitignored local `.env` file or inject it through the process environment:
 
 ```bash
 export OPENAI_API_KEY=your-key
 go run ./cmd/evoops serve
 ```
 
-On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. `OPENAI_BASE_URL` and `OPENAI_MODEL` remain available as deployment-time overrides. Never commit a live key; `.env` is ignored by Git.
+On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. Process variables take precedence over `.env`; `OPENAI_BASE_URL` and `OPENAI_MODEL` remain available as deployment-time overrides. Never commit a live key; `.env` is ignored by Git and excluded from Docker build context.
 
 ## Useful commands
 
