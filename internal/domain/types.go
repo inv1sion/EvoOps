@@ -307,7 +307,6 @@ type SemanticEvaluation struct {
 	NumericAccuracy    float64  `json:"numeric_accuracy"`
 	ActionSupport      float64  `json:"action_support"`
 	Completeness       float64  `json:"completeness"`
-	Clarity            float64  `json:"clarity"`
 	ApprovalDisclosure float64  `json:"approval_disclosure"`
 	UnsupportedClaims  []string `json:"unsupported_claims,omitempty"`
 	NumericErrors      []string `json:"numeric_errors,omitempty"`

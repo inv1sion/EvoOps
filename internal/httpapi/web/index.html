@@ -59,7 +59,7 @@ const riskLabels={low:'低风险',medium:'中风险',high:'高风险',critical:'
 const toolLabels={get_business_metrics:'经营指标工具',get_inventory_risk:'库存风险工具',get_campaign_performance:'广告效果工具',search_operations_knowledge:'经营知识检索',execute_operation:'经营操作执行'};
 const stepLabels={gather_operational_data:'采集经营数据',diagnose_signals:'诊断经营信号',retrieve_playbooks:'检索处置手册',synthesize_plan:'生成经营方案',approval_and_execution_gate:'审批与执行门禁',resume_approved_operations:'恢复已审批操作'};
 const kindLabels={workflow:'工作流',reasoning:'规则诊断',rag:'检索增强',model:'模型生成',guard:'安全门禁',approval:'审批恢复',tool:'工具调用'};
-const layerLabels={retrieval:'检索质量',trajectory:'轨迹质量',safety:'工具安全',outcome:'业务效果',model_quality:'模型事实与回答质量',cost:'成本性能'};
+const layerLabels={retrieval:'检索质量',trajectory:'轨迹质量',safety:'工具安全',outcome:'业务效果',model_quality:'模型事实与任务核验',cost:'成本性能'};
 const mutationLabels={retrieval_top_k:'检索结果数',retrieval_candidate_k:'检索候选数',dense_weight:'语义检索权重',sparse_weight:'关键词检索权重',rrf_k:'融合排序常数',merge_threshold:'片段合并阈值',relevance_threshold:'相关性阈值',rerank_enabled:'是否启用重排',query_rewrite_strategy:'查询改写策略',prompt_revision:'提示词版本',routing_revision:'路由版本',max_workflow_steps:'最大工作流步骤数',max_tool_calls:'最大工具调用数',required_approval_risk:'需审批的最低风险等级',tool_allowlist:'工具白名单',conversion_drop_threshold:'转化下降阈值',traffic_drop_threshold:'流量下降阈值',refund_rate_threshold:'退款率阈值',campaign_roi_threshold:'广告投产阈值',stock_cover_days_threshold:'库存覆盖天数阈值',max_cost_units:'最大成本单位'};
 const valueLabels={true:'是',false:'否',none:'不改写',step_back:'上位问题改写',hyde:'假设文档改写',low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'};
 const label=(labels,value)=>labels[value]||value;

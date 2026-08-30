@@ -11,7 +11,7 @@ import (
 func TestScoreSemanticRequiresGroundedNumericAnswer(t *testing.T) {
 	passing := domain.SemanticEvaluation{
 		Score: .94, Passed: true, Groundedness: 5, NumericAccuracy: 5,
-		ActionSupport: 5, Completeness: 4, Clarity: 5, ApprovalDisclosure: 5,
+		ActionSupport: 5, Completeness: 4, ApprovalDisclosure: 5,
 	}
 	if report := scoreSemantic(passing, nil); !report.Passed || !report.HardGate || report.Score != .94 {
 		t.Fatalf("grounded answer should pass: %#v", report)
@@ -60,7 +60,7 @@ func TestLiveQwenSemanticEvaluator(t *testing.T) {
 
 func TestDecodeJSONObjectAcceptsWrappedObjectAndRejectsExtraFields(t *testing.T) {
 	var response semanticJudgeResponse
-	content := "评测结果如下：\n```json\n{\"groundedness\":5,\"numeric_accuracy\":5,\"action_support\":5,\"completeness\":4,\"clarity\":5,\"approval_disclosure\":5,\"unsupported_claims\":[],\"numeric_errors\":[],\"unsupported_actions\":[],\"rationale\":\"有据\"}\n```"
+	content := "评测结果如下：\n```json\n{\"groundedness\":5,\"numeric_accuracy\":5,\"action_support\":5,\"completeness\":4,\"approval_disclosure\":5,\"unsupported_claims\":[],\"numeric_errors\":[],\"unsupported_actions\":[],\"rationale\":\"有据\"}\n```"
 	if err := decodeJSONObject(content, &response); err != nil || response.NumericAccuracy != 5 {
 		t.Fatalf("valid wrapped response was rejected: response=%#v err=%v", response, err)
 	}

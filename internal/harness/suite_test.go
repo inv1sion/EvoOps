@@ -84,7 +84,7 @@ func TestSemanticEvaluatorAddsHardGateAndAuditableDetail(t *testing.T) {
 	judged := domain.SemanticEvaluation{
 		Provider: "test", Model: "qwen-max", Score: .96, Passed: true,
 		Groundedness: 5, NumericAccuracy: 5, ActionSupport: 5,
-		Completeness: 4, Clarity: 5, ApprovalDisclosure: 5,
+		Completeness: 4, ApprovalDisclosure: 5,
 	}
 	suite, err := New("test-v1", []domain.HarnessCase{passingCase()}, &fakeReplayer{}, fakeSemanticEvaluator{result: judged})
 	if err != nil {

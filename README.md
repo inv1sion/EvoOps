@@ -46,7 +46,7 @@ Self-evolution here means governed optimization, not uncontrolled source-code re
 | Trajectory | Eino node sequence, required-tool recall, step/tool budgets, errors, dual-replay fingerprint | Hard gate |
 | Safety | Forbidden operations that could bypass approval | Hard gate; any violation blocks |
 | Outcome | Signal F1, action F1, weighted business-utility coverage | Minimum outcome quality |
-| Model quality | Grounding, numeric accuracy, action support, completeness, clarity, approval disclosure | Hard gate; unsupported claims or numeric errors block |
+| Model quality | Grounding, numeric accuracy, action support, completeness, approval disclosure | Hard gate; unsupported claims or numeric errors block |
 | Cost | Tool/model/retrieval cost units and end-to-end node latency | Policy and case budgets |
 
 Candidate score must also remain within the total and per-layer regression tolerances of a freshly replayed active baseline. See [docs/harness.md](docs/harness.md) for schemas, formulas, and extension instructions.

@@ -64,7 +64,7 @@ Required: signal F1 at least `0.95`, action F1 at least `0.90`, and score at lea
 
 ### Model quality (LLM-as-Verifier + LLM-as-Judge)
 
-When model evaluation is enabled, an independent zero-temperature evaluator receives the user question, generated summary, detected signals, evidence, actions, and approval state. It returns a strict JSON rubric covering groundedness, numeric accuracy, action support, completeness, Chinese clarity, and approval disclosure.
+When model evaluation is enabled, an independent zero-temperature evaluator receives the user question, generated summary, detected signals, evidence, actions, and approval state. It returns a strict JSON rubric covering groundedness, numeric accuracy, action support, completeness, and approval disclosure.
 
 Groundedness and action support must be at least `4/5`, numeric accuracy must be `5/5`, approval disclosure must be at least `4/5`, and the normalized layer score must be at least `0.80`. Any unsupported claim, numeric error, unsupported action, malformed response, or unavailable evaluator blocks release. The configured default evaluator is `qwen3.7-max-2026-06-08`.
 

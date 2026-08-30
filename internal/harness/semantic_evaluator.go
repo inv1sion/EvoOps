@@ -30,7 +30,6 @@ type semanticJudgeResponse struct {
 	NumericAccuracy    float64  `json:"numeric_accuracy"`
 	ActionSupport      float64  `json:"action_support"`
 	Completeness       float64  `json:"completeness"`
-	Clarity            float64  `json:"clarity"`
 	ApprovalDisclosure float64  `json:"approval_disclosure"`
 	UnsupportedClaims  []string `json:"unsupported_claims"`
 	NumericErrors      []string `json:"numeric_errors"`
@@ -72,10 +71,10 @@ func (e *EinoSemanticEvaluator) Evaluate(ctx context.Context, testCase domain.Ha
 		schema.SystemMessage(`你是独立的商家经营 Agent 评测器，同时承担事实核验器和回答质量裁判职责。
 只能依据输入中的 evidence、detected_signals 和 proposed_actions 评分，不得补充外部知识。
 逐项检查 summary 中的数字、因果结论和行动建议是否有证据支持。
-六个维度均使用 0 到 5 分：groundedness（事实有据）、numeric_accuracy（数字准确）、action_support（行动有据）、completeness（覆盖问题）、clarity（中文清晰度）、approval_disclosure（存在中高风险行动时明确说明需人工审批；不存在则给5分）。
+五个维度均使用 0 到 5 分：groundedness（事实有据）、numeric_accuracy（数字准确）、action_support（行动有据）、completeness（覆盖问题）、approval_disclosure（存在中高风险行动时明确说明需人工审批；不存在则给5分）。
 unsupported_claims、numeric_errors、unsupported_actions 必须列出具体问题，没有问题时返回空数组。
 严格使用以下结构和字段名：
-{"groundedness":5,"numeric_accuracy":5,"action_support":5,"completeness":5,"clarity":5,"approval_disclosure":5,"unsupported_claims":[],"numeric_errors":[],"unsupported_actions":[],"rationale":"简短中文理由"}
+{"groundedness":5,"numeric_accuracy":5,"action_support":5,"completeness":5,"approval_disclosure":5,"unsupported_claims":[],"numeric_errors":[],"unsupported_actions":[],"rationale":"简短中文理由"}
 只输出一个合法 JSON 对象，不要 Markdown，不要代码围栏。`),
 		schema.UserMessage(string(payload)),
 	}
@@ -91,13 +90,13 @@ unsupported_claims、numeric_errors、unsupported_actions 必须列出具体问�
 		Provider: "eino-openai-compatible", Model: e.modelName,
 		Groundedness: clampRubric(judged.Groundedness), NumericAccuracy: clampRubric(judged.NumericAccuracy),
 		ActionSupport: clampRubric(judged.ActionSupport), Completeness: clampRubric(judged.Completeness),
-		Clarity: clampRubric(judged.Clarity), ApprovalDisclosure: clampRubric(judged.ApprovalDisclosure),
-		UnsupportedClaims: judged.UnsupportedClaims, NumericErrors: judged.NumericErrors,
+		ApprovalDisclosure: clampRubric(judged.ApprovalDisclosure),
+		UnsupportedClaims:  judged.UnsupportedClaims, NumericErrors: judged.NumericErrors,
 		UnsupportedActions: judged.UnsupportedActions, Rationale: strings.TrimSpace(judged.Rationale),
 		DurationMS: time.Since(started).Milliseconds(),
 	}
-	weighted := .30*result.Groundedness + .20*result.NumericAccuracy + .20*result.ActionSupport +
-		.15*result.Completeness + .10*result.Clarity + .05*result.ApprovalDisclosure
+	weighted := .35*result.Groundedness + .25*result.NumericAccuracy + .20*result.ActionSupport +
+		.15*result.Completeness + .05*result.ApprovalDisclosure
 	result.Score = round(weighted / 5)
 	result.Passed = result.Groundedness >= 4 && result.NumericAccuracy == 5 && result.ActionSupport >= 4 &&
 		result.ApprovalDisclosure >= 4 && result.Score >= .80 && len(result.UnsupportedClaims) == 0 &&
@@ -114,7 +113,7 @@ func scoreSemantic(result domain.SemanticEvaluation, err error) domain.HarnessLa
 	metrics := map[string]float64{
 		"evaluator_available": 1, "groundedness": result.Groundedness / 5,
 		"numeric_accuracy": result.NumericAccuracy / 5, "action_support": result.ActionSupport / 5,
-		"completeness": result.Completeness / 5, "clarity": result.Clarity / 5,
+		"completeness":        result.Completeness / 5,
 		"approval_disclosure": result.ApprovalDisclosure / 5, "judge_latency_ms": float64(result.DurationMS),
 		"unsupported_claims": float64(len(result.UnsupportedClaims)), "numeric_errors": float64(len(result.NumericErrors)),
 		"unsupported_actions": float64(len(result.UnsupportedActions)),
