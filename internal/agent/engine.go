@@ -78,7 +78,7 @@ func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selec
 		request.Window = 7
 	}
 	if strings.TrimSpace(request.Question) == "" {
-		request.Question = "What changed, why, and what should we do next?"
+		request.Question = "经营发生了什么变化、原因是什么、下一步应该怎么做？"
 	}
 	run := &domain.Run{
 		ID: uuid.NewString(), Mode: mode, Request: request, Status: domain.RunRunning,
@@ -121,7 +121,7 @@ func (e *Engine) Approve(ctx context.Context, runID string, decision domain.Appr
 		return nil, err
 	}
 	if run.Status != domain.RunWaitingApproval || run.PendingApproval == nil || run.Result == nil {
-		return nil, fmt.Errorf("run %s is not waiting for approval", runID)
+		return nil, fmt.Errorf("运行 %s 当前不处于待审批状态", runID)
 	}
 	step := e.beginStep(run, "resume_approved_operations", "approval", map[string]any{"decision": decision})
 	pending := make(map[string]bool, len(run.PendingApproval.ActionIDs))
@@ -272,7 +272,7 @@ func (e *Engine) guard(ctx context.Context, state *execution) (*execution, error
 	if len(pending) > 0 {
 		status = domain.RunWaitingApproval
 		state.Run.PendingApproval = &domain.ApprovalRequest{
-			RunID: state.Run.ID, Reason: "One or more operations meet the active policy's human-approval threshold.", ActionIDs: pending,
+			RunID: state.Run.ID, Reason: "一个或多个操作达到当前策略规定的人工审批风险阈值。", ActionIDs: pending,
 		}
 	}
 	state.Run.Status = status

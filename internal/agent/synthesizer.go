@@ -57,13 +57,13 @@ func (s *EinoSynthesizer) Synthesize(ctx context.Context, request domain.Diagnos
 		return "", err
 	}
 	messages := []*schema.Message{
-		schema.SystemMessage("You are an operations copilot. Summarize only the supplied evidence. Never invent metrics. Mention that medium/high-risk actions require approval. Keep the response under 120 words."),
+		schema.SystemMessage("你是商家经营智能助手。必须全程使用简体中文，只能依据提供的证据进行总结，不得编造指标。明确说明中高风险操作需要人工审批。输出一段不超过180个汉字的经营诊断。"),
 		schema.UserMessage(string(payload)),
 	}
 	response, err := s.model.Generate(ctx, messages)
 	if err != nil {
 		fallback, _ := s.fallback.Synthesize(ctx, request, analysis)
-		return fallback, fmt.Errorf("model synthesis failed; deterministic fallback used: %w", err)
+		return fallback, fmt.Errorf("模型总结失败，已使用确定性结果降级：%w", err)
 	}
 	if strings.TrimSpace(response.Content) == "" {
 		return s.fallback.Synthesize(ctx, request, analysis)

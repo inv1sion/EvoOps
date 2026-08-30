@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>EvoOps · Traceable Operations Agent</title>
+  <title>EvoOps · 可追溯商家经营智能体</title>
   <style>
     :root { color-scheme: dark; --bg:#0a0d12; --panel:#111721; --panel2:#171f2b; --line:#263141; --text:#ecf1f8; --muted:#8d9bad; --cyan:#61dafb; --lime:#b4f36b; --amber:#f4bd62; --red:#ff7e87; }
-    * { box-sizing:border-box } body { margin:0; background:radial-gradient(circle at 10% -10%,#18313b 0,transparent 34%),var(--bg); color:var(--text); font:14px/1.5 Inter,ui-sans-serif,system-ui,sans-serif }
+    * { box-sizing:border-box } body { margin:0; background:radial-gradient(circle at 10% -10%,#18313b 0,transparent 34%),var(--bg); color:var(--text); font:14px/1.5 "Microsoft YaHei","PingFang SC",Inter,ui-sans-serif,system-ui,sans-serif }
     header { height:66px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:rgba(10,13,18,.85); backdrop-filter:blur(16px); position:sticky; top:0; z-index:3 }
     .brand { font-weight:760; letter-spacing:.2px; font-size:18px }.brand span { color:var(--cyan) }.status { color:var(--muted); display:flex; gap:8px; align-items:center }.dot { width:8px; height:8px; background:var(--lime); border-radius:50%; box-shadow:0 0 12px var(--lime) }
     main { max-width:1440px; margin:0 auto; padding:24px; display:grid; grid-template-columns:330px minmax(0,1fr); gap:20px }.panel { background:linear-gradient(145deg,rgba(23,31,43,.96),rgba(14,20,29,.96)); border:1px solid var(--line); border-radius:14px; box-shadow:0 18px 48px rgba(0,0,0,.2) }
@@ -23,52 +23,64 @@
   </style>
 </head>
 <body>
-<header><div class="brand">Evo<span>Ops</span></div><div class="status"><i class="dot"></i><span id="health">checking service</span></div></header>
+<header><div class="brand">Evo<span>Ops</span></div><div class="status"><i class="dot"></i><span id="health">正在检查服务状态</span></div></header>
 <main>
   <aside class="panel">
-    <div class="eyebrow">Diagnosis request</div>
-    <h1>Evidence before action.</h1>
-    <p>Run the Eino workflow against a synthetic store. Low-risk tasks execute automatically; impactful operations pause for approval.</p>
-    <label for="store">Store ID</label><input id="store" value="demo-store">
-    <label for="question">Question</label><textarea id="question">Diagnose the current operating decline and propose evidence-backed actions.</textarea>
-    <div class="buttons"><button id="run">Run diagnosis</button><button class="secondary" id="refresh">Recent runs</button></div>
+    <div class="eyebrow">经营诊断</div>
+    <h1>行动之前，证据先行。</h1>
+    <p>通过 Eino 工作流诊断模拟店铺。低风险任务可自动执行，影响较大的经营操作会暂停并等待人工审批。</p>
+    <label for="store">店铺编号</label><input id="store" value="demo-store">
+    <label for="question">经营问题</label><textarea id="question">诊断当前经营下滑，并提出有证据支撑的行动。</textarea>
+    <div class="buttons"><button id="run">开始诊断</button><button class="secondary" id="refresh">最近运行</button></div>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
-    <div class="toolbar"><h2>Controlled evolution</h2></div>
-    <p style="font-size:12px">Baseline → failure attribution → candidate → five-layer Harness → canary. Promotion is intentionally separate.</p>
-    <div class="buttons"><button class="secondary" id="evolve">Run Harness evolution</button></div>
+    <div class="toolbar"><h2>受控自进化</h2></div>
+    <p style="font-size:12px">基线评测 → 失败归因 → 策略候选 → 五层质量门禁 → 灰度验证；策略晋升始终由人工确认。</p>
+    <div class="buttons"><button class="secondary" id="evolve">运行自进化评测</button></div>
     <div id="evolution" style="margin-top:12px;color:var(--muted);font-size:12px"></div>
   </aside>
   <section class="content">
     <div class="panel hero">
-      <div><div class="eyebrow">Traceable operations copilot</div><h1 id="summary">Ready to inspect a business change.</h1><p id="runmeta">Every conclusion links to tool evidence and every execution is captured in the trajectory.</p></div>
-      <div class="policy"><span class="pill" id="status">idle</span><span class="pill" id="policy">policy —</span><span class="pill" id="runid">run —</span></div>
+      <div><div class="eyebrow">可追溯经营助手</div><h1 id="summary">准备开始经营诊断。</h1><p id="runmeta">每项结论都关联工具证据，每次执行都会完整记录在轨迹中。</p></div>
+      <div class="policy"><span class="pill" id="status">空闲</span><span class="pill" id="policy">策略 —</span><span class="pill" id="runid">运行 —</span></div>
     </div>
     <div class="grid">
-      <div class="panel section"><div class="toolbar"><h2>Signals & actions</h2><div id="approval"></div></div><div id="signals" class="empty">No run selected.</div><div id="actions"></div></div>
-      <div class="panel section"><h2>Evidence</h2><div id="evidence" class="empty">Evidence appears after retrieval.</div></div>
+      <div class="panel section"><div class="toolbar"><h2>经营信号与行动</h2><div id="approval"></div></div><div id="signals" class="empty">尚未选择运行记录。</div><div id="actions"></div></div>
+      <div class="panel section"><h2>证据链</h2><div id="evidence" class="empty">检索完成后将在此展示证据。</div></div>
     </div>
-    <div class="panel section"><div class="toolbar"><h2>Execution trajectory</h2><span class="pill" id="stepcount">0 steps</span></div><div id="timeline" class="empty">The complete Eino node and tool trace will appear here.</div></div>
+    <div class="panel section"><div class="toolbar"><h2>执行轨迹</h2><span class="pill" id="stepcount">0 个步骤</span></div><div id="timeline" class="empty">完整的 Eino 节点与工具调用轨迹将在此展示。</div></div>
   </section>
 </main>
 <div class="toast" id="toast"></div>
 <script>
 const $=id=>document.getElementById(id); let current=null;
-const request=async(url,options={})=>{const res=await fetch(url,{headers:{'Content-Type':'application/json','X-EvoOps-Role':'admin','X-EvoOps-Actor':'local-console'},...options});const data=await res.json();if(!res.ok)throw new Error(data.error||res.statusText);return data};
+const signalLabels={conversion_drop:'转化率下降',traffic_drop:'流量下降',refund_rate_spike:'退款率升高',campaign_roi_low:'广告投产偏低',stockout_risk:'缺货风险'};
+const statusLabels={running:'运行中',waiting_approval:'待审批',completed:'已完成',rejected:'已拒绝',failed:'失败',proposed:'待执行',executed:'已执行',would_execute:'模拟执行'};
+const riskLabels={low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'};
+const toolLabels={get_business_metrics:'经营指标工具',get_inventory_risk:'库存风险工具',get_campaign_performance:'广告效果工具',search_operations_knowledge:'经营知识检索',execute_operation:'经营操作执行'};
+const stepLabels={gather_operational_data:'采集经营数据',diagnose_signals:'诊断经营信号',retrieve_playbooks:'检索处置手册',synthesize_plan:'生成经营方案',approval_and_execution_gate:'审批与执行门禁',resume_approved_operations:'恢复已审批操作'};
+const kindLabels={workflow:'工作流',reasoning:'规则诊断',rag:'检索增强',model:'模型生成',guard:'安全门禁',approval:'审批恢复',tool:'工具调用'};
+const layerLabels={retrieval:'检索质量',trajectory:'轨迹质量',safety:'工具安全',outcome:'业务效果',cost:'成本性能'};
+const mutationLabels={retrieval_top_k:'检索结果数',retrieval_candidate_k:'检索候选数',dense_weight:'语义检索权重',sparse_weight:'关键词检索权重',rrf_k:'融合排序常数',merge_threshold:'片段合并阈值',relevance_threshold:'相关性阈值',rerank_enabled:'是否启用重排',query_rewrite_strategy:'查询改写策略',prompt_revision:'提示词版本',routing_revision:'路由版本',max_workflow_steps:'最大工作流步骤数',max_tool_calls:'最大工具调用数',required_approval_risk:'需审批的最低风险等级',tool_allowlist:'工具白名单',conversion_drop_threshold:'转化下降阈值',traffic_drop_threshold:'流量下降阈值',refund_rate_threshold:'退款率阈值',campaign_roi_threshold:'广告投产阈值',stock_cover_days_threshold:'库存覆盖天数阈值',max_cost_units:'最大成本单位'};
+const valueLabels={true:'是',false:'否',none:'不改写',step_back:'上位问题改写',hyde:'假设文档改写',low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'};
+const label=(labels,value)=>labels[value]||value;
+const displayValue=value=>valueLabels[String(value)]??value;
+function friendlyError(message){if(!message)return '未知错误';if(message.includes('store_id is required'))return '请输入店铺编号';if(message.includes('not found'))return '未找到对应数据';if(message.includes('not permitted'))return '当前账号没有执行该操作的权限';if(message.includes('invalid JSON'))return '请求内容格式不正确';if(message.includes('internal server error'))return '服务内部发生错误';return '服务返回错误，请查看后台日志'}
+const request=async(url,options={})=>{const res=await fetch(url,{headers:{'Content-Type':'application/json','X-EvoOps-Role':'admin','X-EvoOps-Actor':'local-console'},...options});const data=await res.json();if(!res.ok)throw new Error(friendlyError(data.error||res.statusText));return data};
 function toast(text){$('toast').textContent=text;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2200)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function render(run){current=run;const result=run.result||{};$('summary').textContent=result.summary||run.error||'Workflow is running';$('status').textContent=run.status;$('policy').textContent='policy '+run.policy_version;$('runid').textContent='run '+run.id.slice(0,8);$('runmeta').textContent=`Started ${new Date(run.started_at).toLocaleString()} · ${run.steps.length} traced steps`;
- const signals=result.signals||[];$('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(s.name)}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):'No anomaly crossed the active thresholds.';
- const actions=result.actions||[];$('actions').innerHTML=actions.map(a=>`<div class="action"><div class="action-head"><strong>${esc(a.title)}</strong><span class="risk ${esc(a.risk)}">${esc(a.risk)}</span></div><small>${esc(a.expected_impact)}</small><div style="margin-top:7px"><span class="pill">${esc(a.status)}</span><span class="pill">${esc(a.tool)}</span></div></div>`).join('');
- const ev=result.evidence||[];$('evidence').className=ev.length?'':'empty';$('evidence').innerHTML=ev.length?ev.map(e=>`<div class="evidence"><strong>${esc(e.ref)}</strong><br><small>${esc(e.source)}</small><p>${esc(e.excerpt)}</p></div>`).join(''):'Evidence appears after retrieval.';
- $('stepcount').textContent=run.steps.length+' steps';$('timeline').className=run.steps.length?'timeline':'empty';$('timeline').innerHTML=run.steps.length?run.steps.map(s=>`<div class="step"><div class="step-title"><strong>${esc(s.name)}</strong><small>${s.duration_ms} ms · ${esc(s.kind)}</small></div><small>${s.tool_calls?.length||0} tool calls${s.error?' · '+esc(s.error):''}</small><details><summary style="color:var(--muted);cursor:pointer">inspect payload</summary><pre>${esc(JSON.stringify({input:s.input,output:s.output,tool_calls:s.tool_calls},null,2))}</pre></details></div>`).join(''):'No trajectory.';
- $('approval').innerHTML=run.status==='waiting_approval'?'<div class="buttons"><button onclick="approve(true)">Approve actions</button><button class="danger" onclick="approve(false)">Reject</button></div>':'';
+function render(run){current=run;const result=run.result||{};$('summary').textContent=result.summary||(run.error?'诊断执行失败，请查看服务日志。':'工作流正在运行');$('status').textContent=label(statusLabels,run.status);$('policy').textContent='策略 '+run.policy_version;$('runid').textContent='运行 '+run.id.slice(0,8);$('runmeta').textContent=`开始于 ${new Date(run.started_at).toLocaleString('zh-CN')} · 已记录 ${run.steps.length} 个步骤`;
+ const signals=result.signals||[];$('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(label(signalLabels,s.name))}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):'当前指标未触发任何异常阈值。';
+ const actions=result.actions||[];$('actions').innerHTML=actions.map(a=>`<div class="action"><div class="action-head"><strong>${esc(a.title)}</strong><span class="risk ${esc(a.risk)}">${esc(label(riskLabels,a.risk))}</span></div><small>${esc(a.expected_impact)}</small><div style="margin-top:7px"><span class="pill">${esc(label(statusLabels,a.status))}</span><span class="pill">${esc(label(toolLabels,a.tool))}</span></div></div>`).join('');
+ const ev=result.evidence||[];$('evidence').className=ev.length?'':'empty';$('evidence').innerHTML=ev.length?ev.map(e=>`<div class="evidence"><strong>${esc(e.ref)}</strong><br><small>${esc(label(toolLabels,e.source))}</small><p>${esc(e.excerpt)}</p></div>`).join(''):'检索完成后将在此展示证据。';
+ $('stepcount').textContent=run.steps.length+' 个步骤';$('timeline').className=run.steps.length?'timeline':'empty';$('timeline').innerHTML=run.steps.length?run.steps.map(s=>`<div class="step"><div class="step-title"><strong>${esc(label(stepLabels,s.name))}</strong><small>${s.duration_ms} 毫秒 · ${esc(label(kindLabels,s.kind))}</small></div><small>${s.tool_calls?.length||0} 次工具调用${s.error?' · 发生错误，详见技术载荷':''}</small><details><summary style="color:var(--muted);cursor:pointer">查看技术载荷</summary><pre>${esc(JSON.stringify({输入:s.input,输出:s.output,工具调用:s.tool_calls,错误:s.error},null,2))}</pre></details></div>`).join(''):'暂无执行轨迹。';
+ $('approval').innerHTML=run.status==='waiting_approval'?'<div class="buttons"><button onclick="approve(true)">批准行动</button><button class="danger" onclick="approve(false)">拒绝</button></div>':'';
 }
-async function run(){const b=$('run');b.disabled=true;b.textContent='Running…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value,window_days:7})}));toast('Diagnosis complete')}catch(e){toast(e.message)}finally{b.disabled=false;b.textContent='Run diagnosis'}}
-async function approve(approved){try{render(await request(`/api/runs/${current.id}/approve`,{method:'POST',body:JSON.stringify({approved,reason:approved?'Reviewed in EvoOps console':'Rejected in EvoOps console'})}));toast(approved?'Actions executed':'Actions rejected')}catch(e){toast(e.message)}}
-async function recent(){try{const runs=await request('/api/runs?limit=1');if(runs.length)render(runs[0]);else toast('No runs yet')}catch(e){toast(e.message)}}
-async function evolve(){const b=$('evolve');b.disabled=true;try{const e=await request('/api/evolution/run',{method:'POST',body:JSON.stringify({canary_percent:0})});const layers=e.candidate_report.layers.map(x=>`<div class="harness-card"><strong>${esc(x.name)}</strong><br>${esc(x.score)} · ${x.passed?'pass':'blocked'}</div>`).join('');const mutations=(e.candidate.mutations||[]).map(m=>`${esc(m.field)}: ${esc(m.before)} → ${esc(m.after)}`).join('<br>')||'no eligible mutation';const reproducible=e.candidate_report.cases.every(c=>c.reproducible);$('evolution').innerHTML=`<strong>${esc(e.candidate.version)}</strong><br>baseline ${esc(e.baseline_report.score)} → candidate ${esc(e.candidate_report.score)}<div class="harness-grid">${layers}</div><span class="${e.candidate_report.passed?'pass':'blocked'}">${e.candidate_report.passed?'HARNESS PASSED':'RELEASE BLOCKED'}</span> · replay ${reproducible?'stable':'drifted'}<br><br><small>${mutations}</small>`;toast('Evolution Harness complete')}catch(e){toast(e.message)}finally{b.disabled=false}}
+async function run(){const b=$('run');b.disabled=true;b.textContent='诊断中…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value,window_days:7})}));toast('诊断完成')}catch(e){toast('请求失败：'+e.message)}finally{b.disabled=false;b.textContent='开始诊断'}}
+async function approve(approved){try{render(await request(`/api/runs/${current.id}/approve`,{method:'POST',body:JSON.stringify({approved,reason:approved?'已在 EvoOps 控制台完成人工复核':'已在 EvoOps 控制台拒绝该操作'})}));toast(approved?'行动已执行':'行动已拒绝')}catch(e){toast('请求失败：'+e.message)}}
+async function recent(){try{const runs=await request('/api/runs?limit=1');if(runs.length)render(runs[0]);else toast('暂无运行记录')}catch(e){toast('请求失败：'+e.message)}}
+async function evolve(){const b=$('evolve');b.disabled=true;b.textContent='评测中…';try{const e=await request('/api/evolution/run',{method:'POST',body:JSON.stringify({canary_percent:0})});const layers=e.candidate_report.layers.map(x=>`<div class="harness-card"><strong>${esc(label(layerLabels,x.name))}</strong><br>${esc(x.score)} · ${x.passed?'通过':'阻断'}</div>`).join('');const mutations=(e.candidate.mutations||[]).map(m=>`${esc(label(mutationLabels,m.field))}：${esc(displayValue(m.before))} → ${esc(displayValue(m.after))}`).join('<br>')||'没有可执行的参数变更';const reproducible=e.candidate_report.cases.every(c=>c.reproducible);$('evolution').innerHTML=`<strong>${esc(e.candidate.version)}</strong><br>基线 ${esc(e.baseline_report.score)} → 候选 ${esc(e.candidate_report.score)}<div class="harness-grid">${layers}</div><span class="${e.candidate_report.passed?'pass':'blocked'}">${e.candidate_report.passed?'五层评测通过':'发布已阻断'}</span> · ${reproducible?'双回放稳定':'双回放存在漂移'}<br><br><small>${mutations}</small>`;toast('自进化评测完成')}catch(e){toast('请求失败：'+e.message)}finally{b.disabled=false;b.textContent='运行自进化评测'}}
 $('run').onclick=run;$('refresh').onclick=recent;$('evolve').onclick=evolve;
-request('/api/health').then(()=>$('health').textContent='service healthy').catch(()=>$('health').textContent='service unavailable');
+request('/api/health').then(()=>$('health').textContent='服务运行正常').catch(()=>$('health').textContent='服务不可用');
 recent();
 </script>
 </body>

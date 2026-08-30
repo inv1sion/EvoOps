@@ -6,12 +6,31 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/inv1sion/evoops/internal/app"
 	"github.com/inv1sion/evoops/internal/config"
 	"github.com/inv1sion/evoops/internal/domain"
 )
+
+func TestConsoleUsesSimplifiedChinese(t *testing.T) {
+	page, err := assets.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(page)
+	for _, want := range []string{`lang="zh-CN"`, "行动之前，证据先行。", "经营信号与行动", "证据链", "执行轨迹", "运行自进化评测"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("console is missing Chinese copy %q", want)
+		}
+	}
+	for _, unwanted := range []string{"Evidence before action.", "Run diagnosis", "Signals & actions", "Execution trajectory"} {
+		if strings.Contains(body, unwanted) {
+			t.Fatalf("console still contains English copy %q", unwanted)
+		}
+	}
+}
 
 func TestApprovalEndpointRequiresRole(t *testing.T) {
 	application, err := app.New(context.Background(), config.Config{
