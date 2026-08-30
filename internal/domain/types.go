@@ -296,6 +296,26 @@ type HarnessLayerReport struct {
 	Failures []string           `json:"failures,omitempty"`
 }
 
+// SemanticEvaluation contains the auditable output of the LLM verifier/judge.
+// Numeric scores use a 0-5 rubric and Score is normalized to 0-1.
+type SemanticEvaluation struct {
+	Provider           string   `json:"provider"`
+	Model              string   `json:"model"`
+	Score              float64  `json:"score"`
+	Passed             bool     `json:"passed"`
+	Groundedness       float64  `json:"groundedness"`
+	NumericAccuracy    float64  `json:"numeric_accuracy"`
+	ActionSupport      float64  `json:"action_support"`
+	Completeness       float64  `json:"completeness"`
+	Clarity            float64  `json:"clarity"`
+	ApprovalDisclosure float64  `json:"approval_disclosure"`
+	UnsupportedClaims  []string `json:"unsupported_claims,omitempty"`
+	NumericErrors      []string `json:"numeric_errors,omitempty"`
+	UnsupportedActions []string `json:"unsupported_actions,omitempty"`
+	Rationale          string   `json:"rationale,omitempty"`
+	DurationMS         int64    `json:"duration_ms"`
+}
+
 type HarnessCaseReport struct {
 	CaseID                string               `json:"case_id"`
 	RunID                 string               `json:"run_id"`
@@ -305,6 +325,7 @@ type HarnessCaseReport struct {
 	ReplayFingerprint     string               `json:"replay_fingerprint"`
 	Reproducible          bool                 `json:"reproducible"`
 	Layers                []HarnessLayerReport `json:"layers"`
+	SemanticEvaluation    *SemanticEvaluation  `json:"semantic_evaluation,omitempty"`
 	Run                   *Run                 `json:"run,omitempty"`
 	Failures              []string             `json:"failures,omitempty"`
 }

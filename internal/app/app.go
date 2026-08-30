@@ -62,7 +62,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		registry.Close()
 		return nil, err
 	}
-	harnessSuite, err := harness.Load(cfg.HarnessDataPath, engine)
+	var evaluators []harness.SemanticEvaluator
+	if cfg.OpenAIAPIKey != "" && cfg.LLMEvalEnabled {
+		semanticEvaluator, err := harness.NewEinoSemanticEvaluator(ctx, cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.JudgeModel)
+		if err != nil {
+			registry.Close()
+			return nil, fmt.Errorf("initialize judge model: %w", err)
+		}
+		evaluators = append(evaluators, semanticEvaluator)
+	}
+	harnessSuite, err := harness.Load(cfg.HarnessDataPath, engine, evaluators...)
 	if err != nil {
 		registry.Close()
 		return nil, err

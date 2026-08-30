@@ -11,7 +11,7 @@ request                                   labeled Harness suite
   ↓                                              ↓
 Eino workflow ── full trajectory ───────→ exact-path replay ×2
   ↓                                              ↓
-risk gate                                  five layer scoring
+risk gate                                  six layer scoring
   ↓                                              ↓
 approval / execution                      failure attribution
                                                  ↓

@@ -18,14 +18,19 @@ func TestLoadUsesQwenWorkspaceDefaultsWithoutEmbeddingCredential(t *testing.T) {
 	if cfg.OpenAIBaseURL != DefaultOpenAIBaseURL || cfg.OpenAIModel != DefaultOpenAIModel {
 		t.Fatalf("unexpected model defaults: base_url=%q model=%q", cfg.OpenAIBaseURL, cfg.OpenAIModel)
 	}
+	if cfg.JudgeModel != DefaultJudgeModel || !cfg.LLMEvalEnabled {
+		t.Fatalf("unexpected evaluator defaults: judge=%q enabled=%v", cfg.JudgeModel, cfg.LLMEvalEnabled)
+	}
 }
 
 func TestLoadAllowsModelEndpointOverride(t *testing.T) {
 	t.Setenv("OPENAI_BASE_URL", "https://example.test/v1")
 	t.Setenv("OPENAI_MODEL", "test-model")
+	t.Setenv("EVOOPS_JUDGE_MODEL", "judge-model")
+	t.Setenv("EVOOPS_LLM_EVAL_ENABLED", "false")
 
 	cfg := Load()
-	if cfg.OpenAIBaseURL != "https://example.test/v1" || cfg.OpenAIModel != "test-model" {
+	if cfg.OpenAIBaseURL != "https://example.test/v1" || cfg.OpenAIModel != "test-model" || cfg.JudgeModel != "judge-model" || cfg.LLMEvalEnabled {
 		t.Fatalf("environment override was ignored: %#v", cfg)
 	}
 }

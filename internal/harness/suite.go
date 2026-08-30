@@ -21,9 +21,10 @@ type Replayer interface {
 }
 
 type Suite struct {
-	version  string
-	cases    []domain.HarnessCase
-	replayer Replayer
+	version   string
+	cases     []domain.HarnessCase
+	replayer  Replayer
+	evaluator SemanticEvaluator
 }
 
 type suiteFile struct {
@@ -31,7 +32,7 @@ type suiteFile struct {
 	Cases   []domain.HarnessCase `json:"cases"`
 }
 
-func Load(path string, replayer Replayer) (*Suite, error) {
+func Load(path string, replayer Replayer, evaluators ...SemanticEvaluator) (*Suite, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read harness suite: %w", err)
@@ -40,10 +41,10 @@ func Load(path string, replayer Replayer) (*Suite, error) {
 	if err := json.Unmarshal(data, &file); err != nil {
 		return nil, fmt.Errorf("decode harness suite: %w", err)
 	}
-	return New(file.Version, file.Cases, replayer)
+	return New(file.Version, file.Cases, replayer, evaluators...)
 }
 
-func New(version string, cases []domain.HarnessCase, replayer Replayer) (*Suite, error) {
+func New(version string, cases []domain.HarnessCase, replayer Replayer, evaluators ...SemanticEvaluator) (*Suite, error) {
 	if version == "" || len(cases) == 0 {
 		return nil, fmt.Errorf("harness suite requires version and cases")
 	}
@@ -63,7 +64,11 @@ func New(version string, cases []domain.HarnessCase, replayer Replayer) (*Suite,
 		}
 		seen[testCase.ID] = true
 	}
-	return &Suite{version: version, cases: append([]domain.HarnessCase(nil), cases...), replayer: replayer}, nil
+	var evaluator SemanticEvaluator
+	if len(evaluators) > 0 {
+		evaluator = evaluators[0]
+	}
+	return &Suite{version: version, cases: append([]domain.HarnessCase(nil), cases...), replayer: replayer, evaluator: evaluator}, nil
 }
 
 func (s *Suite) Evaluate(ctx context.Context, selected domain.Policy, baseline *domain.HarnessReport) (domain.HarnessReport, error) {
@@ -114,13 +119,22 @@ func (s *Suite) evaluateCase(ctx context.Context, selected domain.Policy, testCa
 	safety := scoreSafety(testCase, run)
 	outcome := scoreOutcome(testCase, run)
 	cost := scoreCost(testCase, selected, run)
-	layers := []domain.HarnessLayerReport{retrieval, trajectory, safety, outcome, cost}
+	layers := []domain.HarnessLayerReport{retrieval, trajectory, safety, outcome}
+	var semanticEvaluation *domain.SemanticEvaluation
+	if s.evaluator != nil {
+		judged, judgeErr := s.evaluator.Evaluate(ctx, testCase, run)
+		layers = append(layers, scoreSemantic(judged, judgeErr))
+		if judgeErr == nil {
+			semanticEvaluation = &judged
+		}
+	}
+	layers = append(layers, cost)
 	passed := allLayersPassed(layers)
 	failures := collectFailures(layers)
 	return domain.HarnessCaseReport{
 		CaseID: testCase.ID, RunID: run.ID, Score: round(weightedScore(layers)), Passed: passed,
 		TrajectoryFingerprint: fingerprint, ReplayFingerprint: replayFingerprint, Reproducible: reproducible,
-		Layers: layers, Run: run, Failures: failures,
+		Layers: layers, SemanticEvaluation: semanticEvaluation, Run: run, Failures: failures,
 	}, nil
 }
 
@@ -297,7 +311,7 @@ func aggregateLayers(cases []domain.HarnessCaseReport) []domain.HarnessLayerRepo
 		failures     []string
 	}
 	items := map[string]*accumulator{}
-	order := []string{"retrieval", "trajectory", "safety", "outcome", "cost"}
+	order := []string{"retrieval", "trajectory", "safety", "outcome", "model_quality", "cost"}
 	for _, caseReport := range cases {
 		for _, layerReport := range caseReport.Layers {
 			item := items[layerReport.Name]
@@ -353,7 +367,7 @@ func attribute(report domain.HarnessReport) []domain.FailureAttribution {
 		}
 	}
 	var result []domain.FailureAttribution
-	for _, category := range []string{"retrieval", "trajectory", "safety", "outcome", "cost"} {
+	for _, category := range []string{"retrieval", "trajectory", "safety", "outcome", "model_quality", "cost"} {
 		group := groups[category]
 		if group == nil {
 			continue
@@ -374,6 +388,10 @@ func attribute(report domain.HarnessReport) []domain.FailureAttribution {
 		case "outcome":
 			mutations = []string{"conversion_drop_threshold", "traffic_drop_threshold", "refund_rate_threshold", "campaign_roi_threshold", "stock_cover_days_threshold", "prompt_revision"}
 			suggestion = "adjust diagnosis sensitivity using labeled outcome failures"
+		case "model_quality":
+			severity = "high"
+			mutations = []string{"prompt_revision"}
+			suggestion = "revise the synthesis prompt to improve grounding, numeric accuracy, action support, and approval disclosure"
 		case "cost":
 			mutations = []string{"retrieval_top_k", "retrieval_candidate_k", "rerank_enabled", "max_cost_units"}
 			suggestion = "reduce retrieval/model work while retaining quality and safety gates"
@@ -523,6 +541,12 @@ func layerWithFailures(name string, score float64, passed, hard bool, metrics ma
 
 func weightedScore(layers []domain.HarnessLayerReport) float64 {
 	weights := map[string]float64{"retrieval": .20, "trajectory": .20, "safety": .25, "outcome": .25, "cost": .10}
+	for _, item := range layers {
+		if item.Name == "model_quality" {
+			weights = map[string]float64{"retrieval": .15, "trajectory": .15, "safety": .20, "outcome": .20, "model_quality": .20, "cost": .10}
+			break
+		}
+	}
 	total := 0.0
 	for _, item := range layers {
 		total += item.Score * weights[item.Name]

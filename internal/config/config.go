@@ -10,6 +10,7 @@ import (
 const (
 	DefaultOpenAIBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 	DefaultOpenAIModel   = "qwen3.7-flash-2026-07-15"
+	DefaultJudgeModel    = "qwen3.7-max-2026-06-08"
 )
 
 type Config struct {
@@ -20,6 +21,8 @@ type Config struct {
 	OpenAIAPIKey    string
 	OpenAIBaseURL   string
 	OpenAIModel     string
+	JudgeModel      string
+	LLMEvalEnabled  bool
 	MCPSSEURLs      []string
 	MCPAllowlist    []string
 }
@@ -36,9 +39,23 @@ func Load() Config {
 		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
 		OpenAIBaseURL:   env("OPENAI_BASE_URL", DefaultOpenAIBaseURL),
 		OpenAIModel:     env("OPENAI_MODEL", DefaultOpenAIModel),
+		JudgeModel:      env("EVOOPS_JUDGE_MODEL", DefaultJudgeModel),
+		LLMEvalEnabled:  boolEnv("EVOOPS_LLM_EVAL_ENABLED", true),
 		MCPSSEURLs:      csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
 		MCPAllowlist:    csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
 	}
+}
+
+func boolEnv(key string, fallback bool) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func loadDotEnv(path string) error {

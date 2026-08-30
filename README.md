@@ -1,6 +1,6 @@
 # EvoOps
 
-EvoOps is a traceable, self-evolving commerce operations agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). Its center of gravity is not a chat UI: it is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible five-layer Evaluation Harness.
+EvoOps is a traceable, self-evolving commerce operations agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). Its center of gravity is not a chat UI: it is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible six-layer Evaluation Harness.
 
 The included synthetic stores cover traffic, conversion, campaign ROI, refunds, and stockout risk. The framework boundary remains reusable for other decision-and-execution agents.
 
@@ -9,11 +9,11 @@ The included synthetic stores cover traffic, conversion, campaign ROI, refunds, 
 - **Exact-path replay:** the Harness invokes the same compiled Eino workflow and typed tools as the live agent, with side effects replaced by `would_execute`.
 - **Complete trajectory:** every node, tool input/output, retrieval ranking, latency, evidence reference, action state, policy version, and approval event is persisted.
 - **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
-- **Five-layer Harness:** retrieval quality, trajectory correctness, tool safety, business outcome, and cost/latency are scored separately; safety and reproducibility are hard gates.
+- **Six-layer Harness:** retrieval, trajectory, tool safety, business outcome, LLM-verifier/judge quality, and cost/latency are scored separately. Safety, reproducibility, and semantic grounding are hard gates.
 - **Constrained self-evolution:** failure attribution produces a field-level mutation allowlist. The optimizer can change versioned policy parameters, never source code or arbitrary tool permissions.
 - **Release credentials:** an evaluated policy records the Harness report, suite version, and active baseline it passed against. Stale candidates cannot enter canary or promotion.
 - **Human control:** medium/high-risk operations pause durably, canary assignment is deterministic, promotion is explicit, and rollback restores the previous policy.
-- **Offline by default:** the complete demo and test suite run without an API key. An OpenAI-compatible Eino model can replace only the narrative synthesizer.
+- **Offline-capable:** deterministic diagnosis and the original five structural layers run without an API key. With a credential, an independent Eino model synthesizes the answer and Qwen Max verifies facts and judges response quality as the sixth layer.
 
 The retrieval and observability ideas were adapted from my earlier [MedQA-Agentic-RAG](https://github.com/inv1sion/MedQA-Agentic-RAG) project. EvoOps reimplements the online system in Go/Eino and adds the self-evolution Harness, policy governance, release gates, and commerce evaluation set.
 
@@ -26,7 +26,7 @@ flowchart LR
     C --> D[Allowed mutation set]
     D --> E[Versioned candidate]
     E --> F[Candidate exact-path replay ×2]
-    F --> G{Five-layer gate}
+    F --> G{Six-layer gate}
     G -->|blocked| H[Persist evidence and failure class]
     G -->|pass| I[Attach release credential]
     I --> J[Deterministic canary]
@@ -46,6 +46,7 @@ Self-evolution here means governed optimization, not uncontrolled source-code re
 | Trajectory | Eino node sequence, required-tool recall, step/tool budgets, errors, dual-replay fingerprint | Hard gate |
 | Safety | Forbidden operations that could bypass approval | Hard gate; any violation blocks |
 | Outcome | Signal F1, action F1, weighted business-utility coverage | Minimum outcome quality |
+| Model quality | Grounding, numeric accuracy, action support, completeness, clarity, approval disclosure | Hard gate; unsupported claims or numeric errors block |
 | Cost | Tool/model/retrieval cost units and end-to-end node latency | Policy and case budgets |
 
 Candidate score must also remain within the total and per-layer regression tolerances of a freshly replayed active baseline. See [docs/harness.md](docs/harness.md) for schemas, formulas, and extension instructions.
@@ -100,14 +101,14 @@ active baseline replay
 
 It never promotes automatically. Promotion requires a separate admin action after canary assignment.
 
-The repository defaults to Alibaba Cloud Model Studio's Beijing OpenAI-compatible endpoint and `qwen3.7-flash-2026-07-15`. Put the credential in the gitignored local `.env` file or inject it through the process environment:
+The repository defaults to Alibaba Cloud Model Studio's OpenAI-compatible endpoint. The live agent uses `qwen3.7-flash-2026-07-15`; the independent verifier/judge uses `qwen3.7-max-2026-06-08`. Put the credential in the gitignored local `.env` file or inject it through the process environment:
 
 ```bash
 export OPENAI_API_KEY=your-key
 go run ./cmd/evoops serve
 ```
 
-On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. Process variables take precedence over `.env`; `OPENAI_BASE_URL` and `OPENAI_MODEL` remain available as deployment-time overrides. Never commit a live key; `.env` is ignored by Git and excluded from Docker build context.
+On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. Process variables take precedence over `.env`; `OPENAI_BASE_URL`, `OPENAI_MODEL`, `EVOOPS_JUDGE_MODEL`, and `EVOOPS_LLM_EVAL_ENABLED` remain available as deployment-time overrides. Never commit a live key; `.env` is ignored by Git and excluded from Docker build context.
 
 ## Useful commands
 
@@ -136,7 +137,7 @@ go build ./cmd/evoops
 | `GET` | `/api/runs/{id}` | Read the full trajectory |
 | `POST` | `/api/runs/{id}/approve` | Resume or reject guarded actions |
 | `POST` | `/api/runs/{id}/feedback` | Store usefulness, action, and KPI feedback |
-| `GET` | `/api/harness/reports` | List persisted five-layer reports |
+| `GET` | `/api/harness/reports` | List persisted multi-layer reports |
 | `POST` | `/api/harness/run/{version}` | Evaluate a policy against the active baseline |
 | `POST` | `/api/evolution/run` | Execute attribution → candidate → Harness → optional canary |
 | `GET` | `/api/evolution/runs` | List complete evolution records |
@@ -172,7 +173,7 @@ data/harness/           versioned labeled Harness cases
 docs/                   architecture, Harness, evolution, decisions
 internal/agent/         Eino workflow, replay mode, diagnosis, synthesis
 internal/retrieval/     dense + BM25 + RRF + auto-merge + reranking
-internal/harness/       five-layer scoring, fingerprints, attribution
+internal/harness/       deterministic scoring, LLM verifier/judge, fingerprints, attribution
 internal/evolution/     baseline/candidate evaluation and release loop
 internal/policy/        mutation constraints, credentials, canary, rollback
 internal/repository/    atomic JSON trajectory/report/policy persistence

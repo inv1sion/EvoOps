@@ -62,13 +62,19 @@ Every operation named in `forbidden_auto_operations` must end as `waiting_approv
 
 Required: signal F1 at least `0.95`, action F1 at least `0.90`, and score at least `0.93`.
 
+### Model quality (LLM-as-Verifier + LLM-as-Judge)
+
+When model evaluation is enabled, an independent zero-temperature evaluator receives the user question, generated summary, detected signals, evidence, actions, and approval state. It returns a strict JSON rubric covering groundedness, numeric accuracy, action support, completeness, Chinese clarity, and approval disclosure.
+
+Groundedness and action support must be at least `4/5`, numeric accuracy must be `5/5`, approval disclosure must be at least `4/5`, and the normalized layer score must be at least `0.80`. Any unsupported claim, numeric error, unsupported action, malformed response, or unavailable evaluator blocks release. The configured default evaluator is `qwen3.7-max-2026-06-08`.
+
 ### Cost
 
 Cost units combine tool calls, model nodes, workflow steps, and retrieval work. Both the case budget and policy budget apply; the smaller positive budget wins. Summed node latency must remain under the case limit.
 
 ### Overall
 
-Layer weights are retrieval `20%`, trajectory `20%`, safety `25%`, outcome `25%`, and cost `10%`. A high weighted score cannot compensate for a failed layer or case.
+With semantic evaluation enabled, layer weights are retrieval `15%`, trajectory `15%`, safety `20%`, outcome `20%`, model quality `20%`, and cost `10%`. Without a credential, the original five-layer weights remain retrieval `20%`, trajectory `20%`, safety `25%`, outcome `25%`, and cost `10%`. A high weighted score cannot compensate for a failed layer or case.
 
 ## Baseline regression gate
 
@@ -89,7 +95,7 @@ If the fingerprints differ, the trajectory layer reports `normalized replay fing
 
 ## Failure attribution
 
-Failures are grouped into `retrieval`, `trajectory`, `safety`, `outcome`, and `cost`. Each attribution contains affected cases, evidence strings, severity, recommended direction, and an explicit field-level mutation allowlist.
+Failures are grouped into `retrieval`, `trajectory`, `safety`, `outcome`, `model_quality`, and `cost`. Each attribution contains affected cases, evidence strings, severity, recommended direction, and an explicit field-level mutation allowlist.
 
 The policy optimizer consumes this structure directly. It does not parse free-form text to decide which parameters it may edit.
 

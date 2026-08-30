@@ -182,6 +182,11 @@ func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []doma
 		candidate.PromptRevision = nextRevision(candidate.PromptRevision, "routing")
 		record("prompt_revision", before, candidate.PromptRevision, "Trajectory attribution created a new routing/prompt revision")
 	}
+	if categories["model_quality"] && canMutate("prompt_revision") {
+		before := candidate.PromptRevision
+		candidate.PromptRevision = nextRevision(candidate.PromptRevision, "grounding")
+		record("prompt_revision", before, candidate.PromptRevision, "LLM verifier/judge attribution created a grounded synthesis prompt revision")
+	}
 	if categories["outcome"] {
 		if canMutate("conversion_drop_threshold") {
 			beforeConversion := candidate.ConversionDropThreshold
