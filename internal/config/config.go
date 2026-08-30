@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DefaultOpenAIBaseURL = "https://ws-k788cv37sfoh8o0q.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+	DefaultOpenAIBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 	DefaultOpenAIModel   = "qwen3.7-plus"
 )
 

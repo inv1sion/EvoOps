@@ -100,7 +100,7 @@ active baseline replay
 
 It never promotes automatically. Promotion requires a separate admin action after canary assignment.
 
-The repository defaults to the configured Alibaba Cloud Model Studio compatible endpoint and `qwen3.7-plus`. Put the credential in the gitignored local `.env` file or inject it through the process environment:
+The repository defaults to Alibaba Cloud Model Studio's Beijing OpenAI-compatible endpoint and `qwen3.7-plus`. Put the credential in the gitignored local `.env` file or inject it through the process environment:
 
 ```bash
 export OPENAI_API_KEY=your-key
