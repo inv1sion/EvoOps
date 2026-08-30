@@ -33,3 +33,9 @@ A separate mock evaluator is easier to write but can pass while production routi
 **Decision:** store the Harness report ID, suite version, and active baseline on every evaluated candidate; require canary before promotion.
 
 A policy that passed against an older baseline is not automatically safe relative to a newly active policy or changed suite. Binding the credential prevents stale candidates from bypassing the current release gate and makes promotion auditable.
+
+## ADR-006: typed merchant memory cannot mutate the safety boundary
+
+**Decision:** learn only typed, source-linked memory facts from explicit feedback and normalized KPI outcomes. Use them to annotate and order matching actions, never to modify action risk, tool arguments, or approval thresholds.
+
+Free-form memory injected directly into a planner can become an unreviewed control channel and makes tenant isolation difficult to prove. EvoOps therefore validates feedback action IDs against the referenced run, persists profiles under hashed tenant keys, surfaces every applied fact in the evidence chain, and evaluates fixed memory snapshots in the Harness. The tradeoff is deliberately narrower personalization, but its behavior is explainable, replayable, and safe to evolve.

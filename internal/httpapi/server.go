@@ -44,6 +44,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/runs/{id}", s.getRun)
 	s.mux.HandleFunc("POST /api/runs/{id}/approve", s.approveRun)
 	s.mux.HandleFunc("POST /api/runs/{id}/feedback", s.feedback)
+	s.mux.HandleFunc("GET /api/stores/{id}/memory", s.getMerchantMemory)
 	s.mux.HandleFunc("GET /api/policies", s.listPolicies)
 	s.mux.HandleFunc("GET /api/harness/reports", s.listHarnessReports)
 	s.mux.HandleFunc("POST /api/harness/run/{version}", s.evaluate)
@@ -137,23 +138,53 @@ func (s *Server) approveRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) feedback(w http.ResponseWriter, r *http.Request) {
+	if !requireRole(w, r, "operator", "admin") {
+		return
+	}
 	var feedback domain.Feedback
 	if !decode(w, r, &feedback) {
 		return
 	}
 	runID := r.PathValue("id")
-	if _, err := s.app.Repo.GetRun(r.Context(), runID); err != nil {
+	run, err := s.app.Repo.GetRun(r.Context(), runID)
+	if err != nil {
 		respond(w, nil, err)
 		return
 	}
 	feedback.ID = uuid.NewString()
 	feedback.RunID = runID
+	feedback.StoreID = run.Request.StoreID
+	feedback.MemoryUpdates = nil
 	feedback.CreatedAt = time.Now().UTC()
+	if err := s.app.Memory.Validate(run, feedback); err != nil {
+		respond(w, nil, err)
+		return
+	}
+	// Persist the source event before materializing facts so every memory can
+	// always be traced back to an existing feedback record.
+	if err := s.app.Repo.AddFeedback(r.Context(), feedback); err != nil {
+		respond(w, nil, err)
+		return
+	}
+	updates, err := s.app.Memory.Learn(r.Context(), run, feedback)
+	if err != nil {
+		respond(w, nil, err)
+		return
+	}
+	feedback.MemoryUpdates = updates
 	if err := s.app.Repo.AddFeedback(r.Context(), feedback); err != nil {
 		respond(w, nil, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, feedback)
+}
+
+func (s *Server) getMerchantMemory(w http.ResponseWriter, r *http.Request) {
+	if !requireRole(w, r, "operator", "admin") {
+		return
+	}
+	profile, err := s.app.Memory.Get(r.Context(), r.PathValue("id"))
+	respond(w, profile, err)
 }
 
 func (s *Server) listPolicies(w http.ResponseWriter, r *http.Request) {

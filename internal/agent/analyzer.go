@@ -16,6 +16,7 @@ type AnalysisContext struct {
 	Inventory []domain.InventoryItem
 	Campaigns []domain.Campaign
 	Knowledge domain.RetrievalResult
+	Memory    domain.MerchantMemoryProfile
 }
 
 type Analysis struct {
@@ -112,6 +113,94 @@ func AddKnowledgeEvidence(analysis *Analysis, result domain.RetrievalResult) {
 		analysis.Evidence = append(analysis.Evidence, domain.Evidence{
 			ID: "kb:" + hit.Chunk.ID, Source: tools.ToolKnowledge, Ref: hit.Chunk.Title, Excerpt: hit.Chunk.Text,
 		})
+	}
+}
+
+// ApplyMerchantMemory personalizes presentation and ordering only. Signal
+// detection, tool arguments, risk and approval policy remain unchanged.
+func ApplyMerchantMemory(analysis *Analysis, profile domain.MerchantMemoryProfile) {
+	if analysis == nil || len(profile.Memories) == 0 {
+		return
+	}
+	used := make(map[string]bool)
+	for i := range analysis.Actions {
+		action := &analysis.Actions[i]
+		operation := actionArgument(*action, "action")
+		target := actionArgument(*action, "target")
+		selected, ok := selectActionMemory(profile.Memories, operation, target)
+		if !ok {
+			continue
+		}
+		action.MemoryRefs = []string{selected.ID}
+		switch selected.Polarity {
+		case "prefer", "success":
+			action.Preference = "preferred"
+			action.ExpectedImpact += " 结合该商家的历史正向反馈，本次优先展示此方案。"
+		case "avoid", "failure":
+			action.Preference = "deprioritized"
+			action.ExpectedImpact += " 该商家曾拒绝该类操作或反馈效果不佳，本次降低展示优先级并保留再次确认。"
+		default:
+			continue
+		}
+		if !used[selected.ID] {
+			analysis.Evidence = append(analysis.Evidence, domain.Evidence{
+				ID: "memory:" + selected.ID, Source: "merchant_memory", Ref: selected.Statement,
+				Excerpt: fmt.Sprintf("来源 %s；置信度 %.2f；关联运行 %s。", selected.Source, selected.Confidence, selected.SourceRunID),
+			})
+			used[selected.ID] = true
+		}
+	}
+	sort.SliceStable(analysis.Actions, func(i, j int) bool {
+		return preferenceRank(analysis.Actions[i].Preference) > preferenceRank(analysis.Actions[j].Preference)
+	})
+}
+
+func selectActionMemory(memories []domain.MerchantMemory, operation, target string) (domain.MerchantMemory, bool) {
+	var candidates []domain.MerchantMemory
+	for _, item := range memories {
+		if item.Operation != operation || (item.Kind != "action_preference" && item.Kind != "action_outcome") {
+			continue
+		}
+		if item.Target != "" && target != "" && item.Target != target {
+			continue
+		}
+		candidates = append(candidates, item)
+	}
+	if len(candidates) == 0 {
+		return domain.MerchantMemory{}, false
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		leftExact := candidates[i].Target != "" && candidates[i].Target == target
+		rightExact := candidates[j].Target != "" && candidates[j].Target == target
+		if leftExact != rightExact {
+			return leftExact
+		}
+		leftExplicit := candidates[i].Kind == "action_preference"
+		rightExplicit := candidates[j].Kind == "action_preference"
+		if leftExplicit != rightExplicit {
+			return leftExplicit
+		}
+		if !candidates[i].UpdatedAt.Equal(candidates[j].UpdatedAt) {
+			return candidates[i].UpdatedAt.After(candidates[j].UpdatedAt)
+		}
+		return candidates[i].Confidence > candidates[j].Confidence
+	})
+	return candidates[0], true
+}
+
+func actionArgument(action domain.Action, key string) string {
+	value, _ := action.Arguments[key].(string)
+	return value
+}
+
+func preferenceRank(preference string) int {
+	switch preference {
+	case "preferred":
+		return 2
+	case "deprioritized":
+		return 0
+	default:
+		return 1
 	}
 }
 

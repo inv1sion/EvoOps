@@ -34,4 +34,15 @@ func TestFileRepositoryPersistsRunsAndFeedback(t *testing.T) {
 	if _, err := repo.GetRun(ctx, "missing"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing error=%v", err)
 	}
+	profile := domain.MerchantMemoryProfile{StoreID: "../tenant/a", Memories: []domain.MerchantMemory{{ID: "mem-1", StoreID: "../tenant/a"}}, UpdatedAt: time.Now().UTC()}
+	if err := repo.SaveMerchantMemory(ctx, profile); err != nil {
+		t.Fatal(err)
+	}
+	loadedMemory, err := repo.LoadMerchantMemory(ctx, "../tenant/a")
+	if err != nil || len(loadedMemory.Memories) != 1 {
+		t.Fatalf("memory=%#v err=%v", loadedMemory, err)
+	}
+	if _, err := repo.LoadMerchantMemory(ctx, "tenant-b"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("memory tenant isolation error=%v", err)
+	}
 }

@@ -18,12 +18,18 @@ import (
 )
 
 type execution struct {
-	Request  domain.DiagnosisRequest
-	Run      *domain.Run
-	Policy   domain.Policy
-	Context  AnalysisContext
-	Analysis Analysis
-	DryRun   bool
+	Request        domain.DiagnosisRequest
+	Run            *domain.Run
+	Policy         domain.Policy
+	Context        AnalysisContext
+	Analysis       Analysis
+	DryRun         bool
+	UseMemory      bool
+	MemoryOverride *domain.MerchantMemoryProfile
+}
+
+type MerchantMemoryReader interface {
+	Get(context.Context, string) (domain.MerchantMemoryProfile, error)
 }
 
 type Engine struct {
@@ -31,18 +37,23 @@ type Engine struct {
 	policies    *policy.Manager
 	tools       *tools.Registry
 	synthesizer Synthesizer
+	memory      MerchantMemoryReader
 	runner      compose.Runnable[*execution, *execution]
 	mu          sync.Mutex
 }
 
-func NewEngine(ctx context.Context, repo repository.Repository, policies *policy.Manager, registry *tools.Registry, synthesizer Synthesizer) (*Engine, error) {
+func NewEngine(ctx context.Context, repo repository.Repository, policies *policy.Manager, registry *tools.Registry, synthesizer Synthesizer, memoryReaders ...MerchantMemoryReader) (*Engine, error) {
 	if synthesizer == nil {
 		synthesizer = LocalSynthesizer{}
 	}
 	engine := &Engine{repo: repo, policies: policies, tools: registry, synthesizer: synthesizer}
+	if len(memoryReaders) > 0 {
+		engine.memory = memoryReaders[0]
+	}
 	wf := compose.NewWorkflow[*execution, *execution]()
 	wf.AddLambdaNode("gather_operational_data", compose.InvokableLambda(engine.gather)).AddInput(compose.START)
-	wf.AddLambdaNode("diagnose_signals", compose.InvokableLambda(engine.diagnose)).AddInput("gather_operational_data")
+	wf.AddLambdaNode("load_merchant_memory", compose.InvokableLambda(engine.loadMerchantMemory)).AddInput("gather_operational_data")
+	wf.AddLambdaNode("diagnose_signals", compose.InvokableLambda(engine.diagnose)).AddInput("load_merchant_memory")
 	wf.AddLambdaNode("retrieve_playbooks", compose.InvokableLambda(engine.retrieve)).AddInput("diagnose_signals")
 	wf.AddLambdaNode("synthesize_plan", compose.InvokableLambda(engine.synthesize)).AddInput("retrieve_playbooks")
 	wf.AddLambdaNode("approval_and_execution_gate", compose.InvokableLambda(engine.guard)).AddInput("synthesize_plan")
@@ -60,17 +71,26 @@ func (e *Engine) Run(ctx context.Context, request domain.DiagnosisRequest) (*dom
 	if err != nil {
 		return nil, fmt.Errorf("select policy: %w", err)
 	}
-	return e.run(ctx, request, selected, "live", true, false)
+	return e.run(ctx, request, selected, "live", true, false, nil)
 }
 
 // Replay runs the exact production workflow with a caller-supplied policy,
 // disables side effects, and keeps the complete trajectory in memory for the
 // Harness. It is the reproducible execution primitive used by release gates.
 func (e *Engine) Replay(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy) (*domain.Run, error) {
-	return e.run(ctx, request, selected, "replay", false, true)
+	empty := domain.MerchantMemoryProfile{StoreID: request.StoreID, Memories: []domain.MerchantMemory{}}
+	return e.run(ctx, request, selected, "replay", false, true, &empty)
 }
 
-func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy, mode string, persist, dryRun bool) (*domain.Run, error) {
+// ReplayWithMemory evaluates a fixed memory snapshot through the production
+// graph. Runtime profiles are never read, so longitudinal Harness cases stay
+// reproducible and cannot be polluted by local feedback.
+func (e *Engine) ReplayWithMemory(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy, profile domain.MerchantMemoryProfile) (*domain.Run, error) {
+	profile.StoreID = request.StoreID
+	return e.run(ctx, request, selected, "replay", false, true, &profile)
+}
+
+func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy, mode string, persist, dryRun bool, memoryOverride *domain.MerchantMemoryProfile) (*domain.Run, error) {
 	if strings.TrimSpace(request.StoreID) == "" {
 		return nil, fmt.Errorf("store_id is required")
 	}
@@ -89,7 +109,7 @@ func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selec
 			return nil, err
 		}
 	}
-	state := &execution{Request: request, Run: run, Policy: selected, Context: AnalysisContext{StoreID: request.StoreID}, DryRun: dryRun}
+	state := &execution{Request: request, Run: run, Policy: selected, Context: AnalysisContext{StoreID: request.StoreID}, DryRun: dryRun, UseMemory: mode == "live", MemoryOverride: memoryOverride}
 	result, err := e.runner.Invoke(ctx, state)
 	if err != nil {
 		run.Status = domain.RunFailed
@@ -194,10 +214,32 @@ func (e *Engine) gather(ctx context.Context, state *execution) (*execution, erro
 	return state, nil
 }
 
+func (e *Engine) loadMerchantMemory(ctx context.Context, state *execution) (*execution, error) {
+	input := map[string]any{"store_id": state.Request.StoreID, "snapshot": "live"}
+	if state.MemoryOverride != nil {
+		input["snapshot"] = "isolated_replay"
+	}
+	step := e.beginStep(state.Run, "load_merchant_memory", "memory", input)
+	state.Context.Memory = domain.MerchantMemoryProfile{StoreID: state.Request.StoreID, Memories: []domain.MerchantMemory{}}
+	if state.MemoryOverride != nil {
+		state.Context.Memory = *state.MemoryOverride
+	} else if state.UseMemory && e.memory != nil {
+		profile, err := e.memory.Get(ctx, state.Request.StoreID)
+		if err != nil {
+			e.finishStep(state.Run, step, nil, err)
+			return state, err
+		}
+		state.Context.Memory = profile
+	}
+	e.finishStep(state.Run, step, map[string]any{"memory_count": len(state.Context.Memory.Memories)}, nil)
+	return state, nil
+}
+
 func (e *Engine) diagnose(_ context.Context, state *execution) (*execution, error) {
 	step := e.beginStep(state.Run, "diagnose_signals", "reasoning", map[string]any{"policy_version": state.Policy.Version})
 	state.Analysis = Analyze(state.Context, state.Policy)
-	e.finishStep(state.Run, step, map[string]any{"signals": state.Analysis.Signals, "proposed_actions": len(state.Analysis.Actions)}, nil)
+	ApplyMerchantMemory(&state.Analysis, state.Context.Memory)
+	e.finishStep(state.Run, step, map[string]any{"signals": state.Analysis.Signals, "proposed_actions": len(state.Analysis.Actions), "memory_facts_considered": len(state.Context.Memory.Memories)}, nil)
 	return state, nil
 }
 

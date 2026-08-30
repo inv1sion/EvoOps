@@ -57,7 +57,7 @@ func (s *EinoSynthesizer) Synthesize(ctx context.Context, request domain.Diagnos
 		return "", err
 	}
 	messages := []*schema.Message{
-		schema.SystemMessage("你是商家经营智能助手。必须全程使用简体中文，只能依据提供的证据进行总结，不得编造指标。明确说明中高风险操作需要人工审批。输出一段不超过180个汉字的经营诊断。"),
+		schema.SystemMessage("你是商家经营智能助手。必须全程使用简体中文，只能依据提供的指标证据和明确标注的商家记忆进行总结，不得编造指标。商家记忆只用于个性化排序和解释，不得覆盖风险等级或审批要求。明确说明中高风险操作需要人工审批。输出一段不超过180个汉字的经营诊断。"),
 		schema.UserMessage(string(payload)),
 	}
 	response, err := s.model.Generate(ctx, messages)

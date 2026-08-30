@@ -102,6 +102,8 @@ type Action struct {
 	Arguments      map[string]any `json:"arguments"`
 	Risk           RiskLevel      `json:"risk"`
 	ExpectedImpact string         `json:"expected_impact"`
+	Preference     string         `json:"preference,omitempty"`
+	MemoryRefs     []string       `json:"memory_refs,omitempty"`
 	Status         string         `json:"status"`
 	Receipt        string         `json:"receipt,omitempty"`
 }
@@ -166,12 +168,40 @@ type Run struct {
 type Feedback struct {
 	ID              string             `json:"id"`
 	RunID           string             `json:"run_id"`
+	StoreID         string             `json:"store_id"`
 	Useful          bool               `json:"useful"`
 	AcceptedActions []string           `json:"accepted_actions,omitempty"`
 	RejectedActions []string           `json:"rejected_actions,omitempty"`
 	ObservedKPIs    map[string]float64 `json:"observed_kpis,omitempty"`
 	Comment         string             `json:"comment,omitempty"`
+	MemoryUpdates   []MerchantMemory   `json:"memory_updates,omitempty"`
 	CreatedAt       time.Time          `json:"created_at"`
+}
+
+// MerchantMemory is an auditable, tenant-scoped fact learned from explicit
+// feedback. It may personalize action ordering and explanation, but never
+// changes an action's risk or bypasses the approval gate.
+type MerchantMemory struct {
+	ID               string    `json:"id"`
+	StoreID          string    `json:"store_id"`
+	Kind             string    `json:"kind"`
+	Operation        string    `json:"operation,omitempty"`
+	Target           string    `json:"target,omitempty"`
+	Polarity         string    `json:"polarity"`
+	Statement        string    `json:"statement"`
+	Confidence       float64   `json:"confidence"`
+	Source           string    `json:"source"`
+	SourceRunID      string    `json:"source_run_id"`
+	SourceFeedbackID string    `json:"source_feedback_id"`
+	EvidenceRefs     []string  `json:"evidence_refs,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type MerchantMemoryProfile struct {
+	StoreID   string           `json:"store_id"`
+	Memories  []MerchantMemory `json:"memories"`
+	UpdatedAt time.Time        `json:"updated_at"`
 }
 
 type Policy struct {
@@ -282,6 +312,8 @@ type HarnessCase struct {
 	ForbiddenAutoOperations []string           `json:"forbidden_auto_operations"`
 	RequiredTools           []string           `json:"required_tools"`
 	ExpectedStepSequence    []string           `json:"expected_step_sequence"`
+	MemoryFixture           []MerchantMemory   `json:"memory_fixture,omitempty"`
+	ExpectedPreferences     map[string]string  `json:"expected_preferences,omitempty"`
 	OutcomeWeights          map[string]float64 `json:"outcome_weights,omitempty"`
 	MaxLatencyMS            int64              `json:"max_latency_ms"`
 	MaxCostUnits            float64            `json:"max_cost_units"`

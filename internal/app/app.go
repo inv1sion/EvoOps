@@ -9,6 +9,7 @@ import (
 	"github.com/inv1sion/evoops/internal/dataset"
 	"github.com/inv1sion/evoops/internal/evolution"
 	"github.com/inv1sion/evoops/internal/harness"
+	"github.com/inv1sion/evoops/internal/memory"
 	"github.com/inv1sion/evoops/internal/policy"
 	"github.com/inv1sion/evoops/internal/repository"
 	"github.com/inv1sion/evoops/internal/tools"
@@ -20,6 +21,7 @@ type App struct {
 	Policies  *policy.Manager
 	Tools     *tools.Registry
 	Agent     *agent.Engine
+	Memory    *memory.Service
 	Harness   *harness.Suite
 	Evolution *evolution.Service
 }
@@ -48,6 +50,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		registry.Close()
 		return nil, err
 	}
+	memoryService := memory.NewService(repo)
 	var synthesizer agent.Synthesizer = agent.LocalSynthesizer{}
 	if cfg.OpenAIAPIKey != "" {
 		realModel, err := agent.NewEinoSynthesizer(ctx, cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModel)
@@ -57,7 +60,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 		synthesizer = realModel
 	}
-	engine, err := agent.NewEngine(ctx, repo, policies, registry, synthesizer)
+	engine, err := agent.NewEngine(ctx, repo, policies, registry, synthesizer, memoryService)
 	if err != nil {
 		registry.Close()
 		return nil, err
@@ -77,7 +80,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, err
 	}
 	evolutionService := evolution.NewService(repo, policies, harnessSuite)
-	return &App{Config: cfg, Repo: repo, Policies: policies, Tools: registry, Agent: engine, Harness: harnessSuite, Evolution: evolutionService}, nil
+	return &App{Config: cfg, Repo: repo, Policies: policies, Tools: registry, Agent: engine, Memory: memoryService, Harness: harnessSuite, Evolution: evolutionService}, nil
 }
 
 func (a *App) Close() error { return a.Tools.Close() }

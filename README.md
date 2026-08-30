@@ -8,6 +8,7 @@ The included synthetic stores cover traffic, conversion, campaign ROI, refunds, 
 
 - **Exact-path replay:** the Harness invokes the same compiled Eino workflow and typed tools as the live agent, with side effects replaced by `would_execute`.
 - **Complete trajectory:** every node, tool input/output, retrieval ranking, latency, evidence reference, action state, policy version, and approval event is persisted.
+- **Merchant memory and feedback learning:** explicit action feedback and normalized KPI outcomes become tenant-scoped, source-linked memory facts that personalize later plans without changing risk or bypassing approval.
 - **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
 - **Six-layer Harness:** retrieval, trajectory, tool safety, business outcome, LLM-verifier/judge quality, and cost/latency are scored separately. Safety, reproducibility, and semantic grounding are hard gates.
 - **Constrained self-evolution:** failure attribution produces a field-level mutation allowlist. The optimizer can change versioned policy parameters, never source code or arbitrary tool permissions.
@@ -59,9 +60,11 @@ flowchart LR
     W --> M[Metrics tool]
     W --> I[Inventory tool]
     W --> C[Campaign tool]
+    W --> L[Store-scoped merchant memory]
     M --> D[Deterministic diagnosis]
     I --> D
     C --> D
+    L --> D
     D --> R[Hybrid hierarchical RAG]
     R --> S[Local or Eino LLM synthesis]
     S --> G{Risk gate}
@@ -137,6 +140,7 @@ go build ./cmd/evoops
 | `GET` | `/api/runs/{id}` | Read the full trajectory |
 | `POST` | `/api/runs/{id}/approve` | Resume or reject guarded actions |
 | `POST` | `/api/runs/{id}/feedback` | Store usefulness, action, and KPI feedback |
+| `GET` | `/api/stores/{id}/memory` | Read the tenant-scoped auditable memory profile |
 | `GET` | `/api/harness/reports` | List persisted multi-layer reports |
 | `POST` | `/api/harness/run/{version}` | Evaluate a policy against the active baseline |
 | `POST` | `/api/evolution/run` | Execute attribution → candidate → Harness → optional canary |
@@ -172,6 +176,7 @@ data/demo/              synthetic commerce stores and playbooks
 data/harness/           versioned labeled Harness cases
 docs/                   architecture, Harness, evolution, decisions
 internal/agent/         Eino workflow, replay mode, diagnosis, synthesis
+internal/memory/        feedback-to-memory learning and tenant-scoped profiles
 internal/retrieval/     dense + BM25 + RRF + auto-merge + reranking
 internal/harness/       deterministic scoring, LLM verifier/judge, fingerprints, attribution
 internal/evolution/     baseline/candidate evaluation and release loop

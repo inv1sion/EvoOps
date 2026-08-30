@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,8 @@ type Repository interface {
 	ListRuns(context.Context, int) ([]domain.Run, error)
 	AddFeedback(context.Context, domain.Feedback) error
 	ListFeedback(context.Context) ([]domain.Feedback, error)
+	SaveMerchantMemory(context.Context, domain.MerchantMemoryProfile) error
+	LoadMerchantMemory(context.Context, string) (domain.MerchantMemoryProfile, error)
 	SavePolicyState(context.Context, domain.PolicyState) error
 	LoadPolicyState(context.Context) (domain.PolicyState, error)
 	SaveHarnessReport(context.Context, domain.HarnessReport) error
@@ -35,7 +38,7 @@ type FileRepository struct {
 }
 
 func NewFile(root string) (*FileRepository, error) {
-	for _, dir := range []string{"runs", "feedback", "harness", "evolution"} {
+	for _, dir := range []string{"runs", "feedback", "memory", "harness", "evolution"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
 			return nil, fmt.Errorf("create repository directory: %w", err)
 		}
@@ -105,6 +108,38 @@ func (r *FileRepository) ListFeedback(_ context.Context) ([]domain.Feedback, err
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.Before(result[j].CreatedAt) })
 	return result, nil
+}
+
+func (r *FileRepository) SaveMerchantMemory(_ context.Context, profile domain.MerchantMemoryProfile) error {
+	if profile.StoreID == "" {
+		return fmt.Errorf("store_id is required for merchant memory")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return writeJSON(r.memoryPath(profile.StoreID), profile)
+}
+
+func (r *FileRepository) LoadMerchantMemory(_ context.Context, storeID string) (domain.MerchantMemoryProfile, error) {
+	if storeID == "" {
+		return domain.MerchantMemoryProfile{}, fmt.Errorf("store_id is required for merchant memory")
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var profile domain.MerchantMemoryProfile
+	if err := readJSON(r.memoryPath(storeID), &profile); err != nil {
+		return domain.MerchantMemoryProfile{}, err
+	}
+	if profile.StoreID != storeID {
+		return domain.MerchantMemoryProfile{}, fmt.Errorf("merchant memory tenant mismatch")
+	}
+	return profile, nil
+}
+
+func (r *FileRepository) memoryPath(storeID string) string {
+	// Store IDs come from requests. Hashing prevents path traversal and avoids
+	// leaking tenant identifiers through filesystem names.
+	digest := sha256.Sum256([]byte(storeID))
+	return filepath.Join(r.root, "memory", fmt.Sprintf("%x.json", digest))
 }
 
 func (r *FileRepository) SavePolicyState(_ context.Context, state domain.PolicyState) error {

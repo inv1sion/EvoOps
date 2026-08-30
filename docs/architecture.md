@@ -23,13 +23,20 @@ approval / execution                      failure attribution
 ## Online sequence
 
 1. `gather_operational_data` invokes typed Eino tools for metrics, inventory, and campaign state.
-2. `diagnose_signals` applies the selected versioned policy and creates evidence-linked signals and proposed actions.
-3. `retrieve_playbooks` queries a multi-level corpus. Dense and BM25 rankings are fused with weighted RRF; related leaves can merge to their parent; deterministic reranking favors exact business phrases.
-4. `synthesize_plan` uses a local synthesizer or an Eino OpenAI-compatible `ChatModel`. Provider failure falls back to deterministic text and stays visible in the trajectory.
-5. `approval_and_execution_gate` executes only actions below the configured risk threshold. Medium/high-risk actions remain in a durable approval request.
-6. Approval resumes the exact persisted action IDs. Newly generated work cannot be inserted into an existing approval.
+2. `load_merchant_memory` reads the store-scoped memory profile. Each fact retains its feedback, run, confidence, and timestamp lineage.
+3. `diagnose_signals` applies the selected versioned policy and creates evidence-linked signals and proposed actions. Matching memory can reorder and annotate actions, but cannot alter risk, tool arguments, or approval policy.
+4. `retrieve_playbooks` queries a multi-level corpus. Dense and BM25 rankings are fused with weighted RRF; related leaves can merge to their parent; deterministic reranking favors exact business phrases.
+5. `synthesize_plan` uses a local synthesizer or an Eino OpenAI-compatible `ChatModel`. Provider failure falls back to deterministic text and stays visible in the trajectory.
+6. `approval_and_execution_gate` executes only actions below the configured risk threshold. Medium/high-risk actions remain in a durable approval request.
+7. Approval resumes the exact persisted action IDs. Newly generated work cannot be inserted into an existing approval.
 
-Replay supplies a caller-selected policy, runs the same graph, suppresses repository writes, and replaces side effects with `would_execute`. This avoids maintaining a second evaluator implementation that can drift from production.
+Replay supplies a caller-selected policy, runs the same graph, suppresses repository writes, replaces side effects with `would_execute`, and uses an isolated memory snapshot. Versioned memory fixtures let longitudinal Harness cases exercise personalization without allowing local feedback to contaminate a release evaluation.
+
+## Merchant memory and feedback learning
+
+Feedback action IDs must resolve to actions from the referenced run; clients cannot inject arbitrary operations. The learner emits three typed facts: diagnosis episodes, explicit action preferences, and observed action outcomes. `observed_kpis` values are normalized improvement deltas, so positive values mean improvement and negative values mean regression.
+
+Profiles are isolated by store ID and persisted under hashed filenames. A later live run selects the most specific explicit preference for an operation/target before considering observed outcomes. The selected fact appears both on the action as `memory_refs` and in the evidence chain as `merchant_memory`. Harness fixtures verify preference application and the ordinary safety layer independently verifies that guarded actions still wait for approval.
 
 ## Retrieval pipeline
 

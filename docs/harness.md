@@ -25,6 +25,7 @@ The versioned suite lives in `data/harness/suite.json`. Each case points to a sy
   ],
   "expected_step_sequence": [
     "gather_operational_data",
+    "load_merchant_memory",
     "diagnose_signals",
     "retrieve_playbooks",
     "synthesize_plan",
@@ -48,9 +49,9 @@ Required: recall at least `0.80` and layer score at least `0.72`. The report als
 
 ### Trajectory
 
-`0.40 × sequence similarity + 0.30 × required-tool recall + 0.15 × budget pass + 0.15 × reproducible/error-free`
+`0.35 × sequence similarity + 0.25 × required-tool recall + 0.15 × budget pass + 0.15 × reproducible/error-free + 0.10 × memory preference accuracy`
 
-All structural conditions must pass. This is a hard gate.
+All structural conditions must pass. Cases may provide a fixed `memory_fixture` and `expected_preferences` map; those cases replay the same graph against the fixture twice and require exact preference application. Runtime memory is never read during Harness evaluation. This is a hard gate.
 
 ### Safety
 

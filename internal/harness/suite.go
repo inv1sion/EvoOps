@@ -20,6 +20,10 @@ type Replayer interface {
 	Replay(context.Context, domain.DiagnosisRequest, domain.Policy) (*domain.Run, error)
 }
 
+type memoryReplayer interface {
+	ReplayWithMemory(context.Context, domain.DiagnosisRequest, domain.Policy, domain.MerchantMemoryProfile) (*domain.Run, error)
+}
+
 type Suite struct {
 	version   string
 	cases     []domain.HarnessCase
@@ -62,6 +66,16 @@ func New(version string, cases []domain.HarnessCase, replayer Replayer, evaluato
 		if len(testCase.ExpectedStepSequence) == 0 {
 			return nil, fmt.Errorf("harness case %q requires expected_step_sequence", testCase.ID)
 		}
+		if len(testCase.MemoryFixture) > 0 {
+			if _, ok := replayer.(memoryReplayer); !ok {
+				return nil, fmt.Errorf("harness case %q requires a memory-capable replayer", testCase.ID)
+			}
+			for _, item := range testCase.MemoryFixture {
+				if item.StoreID != "" && item.StoreID != testCase.StoreID {
+					return nil, fmt.Errorf("harness case %q contains cross-store memory", testCase.ID)
+				}
+			}
+		}
 		seen[testCase.ID] = true
 	}
 	var evaluator SemanticEvaluator
@@ -103,11 +117,11 @@ func (s *Suite) Evaluate(ctx context.Context, selected domain.Policy, baseline *
 
 func (s *Suite) evaluateCase(ctx context.Context, selected domain.Policy, testCase domain.HarnessCase) (domain.HarnessCaseReport, error) {
 	request := domain.DiagnosisRequest{StoreID: testCase.StoreID, Question: testCase.Question, Window: 7}
-	run, err := s.replayer.Replay(ctx, request, selected)
+	run, err := s.replay(ctx, request, selected, testCase)
 	if err != nil {
 		return domain.HarnessCaseReport{}, err
 	}
-	replay, err := s.replayer.Replay(ctx, request, selected)
+	replay, err := s.replay(ctx, request, selected, testCase)
 	if err != nil {
 		return domain.HarnessCaseReport{}, err
 	}
@@ -136,6 +150,14 @@ func (s *Suite) evaluateCase(ctx context.Context, selected domain.Policy, testCa
 		TrajectoryFingerprint: fingerprint, ReplayFingerprint: replayFingerprint, Reproducible: reproducible,
 		Layers: layers, SemanticEvaluation: semanticEvaluation, Run: run, Failures: failures,
 	}, nil
+}
+
+func (s *Suite) replay(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy, testCase domain.HarnessCase) (*domain.Run, error) {
+	if len(testCase.MemoryFixture) == 0 {
+		return s.replayer.Replay(ctx, request, selected)
+	}
+	profile := domain.MerchantMemoryProfile{StoreID: testCase.StoreID, Memories: append([]domain.MerchantMemory(nil), testCase.MemoryFixture...)}
+	return s.replayer.(memoryReplayer).ReplayWithMemory(ctx, request, selected, profile)
 }
 
 func scoreRetrieval(testCase domain.HarnessCase, run *domain.Run) domain.HarnessLayerReport {
@@ -183,8 +205,9 @@ func scoreTrajectory(testCase domain.HarnessCase, selected domain.Policy, run *d
 	toolRecall := setRecall(stringSet(testCase.RequiredTools), toolSet)
 	budgetPass := len(run.Steps) <= selected.MaxWorkflowSteps && toolCalls <= selected.MaxToolCalls
 	errorFree := errorsFound == 0
-	score := .40*sequenceScore + .30*toolRecall + .15*boolFloat(budgetPass) + .15*boolFloat(reproducible && errorFree)
-	passed := sequenceScore == 1 && toolRecall == 1 && budgetPass && reproducible && errorFree
+	memoryAccuracy := scoreMemoryPreferences(testCase.ExpectedPreferences, resultActions(run))
+	score := .35*sequenceScore + .25*toolRecall + .15*boolFloat(budgetPass) + .15*boolFloat(reproducible && errorFree) + .10*memoryAccuracy
+	passed := sequenceScore == 1 && toolRecall == 1 && budgetPass && reproducible && errorFree && memoryAccuracy == 1
 	var failures []string
 	if sequenceScore < 1 {
 		failures = append(failures, fmt.Sprintf("step sequence mismatch: actual=%v expected=%v", actualSteps, testCase.ExpectedStepSequence))
@@ -201,11 +224,31 @@ func scoreTrajectory(testCase domain.HarnessCase, selected domain.Policy, run *d
 	if !errorFree {
 		failures = append(failures, fmt.Sprintf("trajectory contains %d errors", errorsFound))
 	}
+	if memoryAccuracy < 1 {
+		failures = append(failures, fmt.Sprintf("merchant memory preference accuracy %.2f", memoryAccuracy))
+	}
 	return layerWithFailures("trajectory", score, passed, true, map[string]float64{
 		"sequence_similarity": sequenceScore, "required_tool_recall": toolRecall,
 		"step_count": float64(len(run.Steps)), "tool_call_count": float64(toolCalls),
-		"reproducible": boolFloat(reproducible), "error_count": float64(errorsFound),
+		"reproducible": boolFloat(reproducible), "error_count": float64(errorsFound), "memory_preference_accuracy": memoryAccuracy,
 	}, failures)
+}
+
+func scoreMemoryPreferences(expected map[string]string, actions []domain.Action) float64 {
+	if len(expected) == 0 {
+		return 1
+	}
+	hits := 0
+	for operation, preference := range expected {
+		for _, action := range actions {
+			actualOperation, _ := action.Arguments["action"].(string)
+			if actualOperation == operation && action.Preference == preference {
+				hits++
+				break
+			}
+		}
+	}
+	return float64(hits) / float64(len(expected))
 }
 
 func scoreSafety(testCase domain.HarnessCase, run *domain.Run) domain.HarnessLayerReport {
@@ -423,10 +466,11 @@ func trajectoryFingerprint(run *domain.Run) string {
 		EvidenceIDs  []string `json:"evidence_ids"`
 	}
 	type normalizedAction struct {
-		Operation string           `json:"operation"`
-		Target    any              `json:"target"`
-		Risk      domain.RiskLevel `json:"risk"`
-		Status    string           `json:"status"`
+		Operation  string           `json:"operation"`
+		Target     any              `json:"target"`
+		Risk       domain.RiskLevel `json:"risk"`
+		Preference string           `json:"preference,omitempty"`
+		Status     string           `json:"status"`
 	}
 	normalized := struct {
 		Status    domain.RunStatus   `json:"status"`
@@ -451,7 +495,7 @@ func trajectoryFingerprint(run *domain.Run) string {
 	}
 	for _, action := range resultActions(run) {
 		normalized.Actions = append(normalized.Actions, normalizedAction{
-			Operation: fmt.Sprint(action.Arguments["action"]), Target: action.Arguments["target"], Risk: action.Risk, Status: action.Status,
+			Operation: fmt.Sprint(action.Arguments["action"]), Target: action.Arguments["target"], Risk: action.Risk, Preference: action.Preference, Status: action.Status,
 		})
 	}
 	normalized.Retrieval = retrievalResult(run).Trace.FinalRanking

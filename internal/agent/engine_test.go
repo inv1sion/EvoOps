@@ -44,11 +44,11 @@ func TestEngineEndToEndApprovalAndTrajectory(t *testing.T) {
 	if run.Status != domain.RunWaitingApproval {
 		t.Fatalf("status=%s, want waiting_approval", run.Status)
 	}
-	if len(run.Steps) != 5 {
-		t.Fatalf("steps=%d, want 5", len(run.Steps))
+	if len(run.Steps) != 6 {
+		t.Fatalf("steps=%d, want 6", len(run.Steps))
 	}
-	if modelName, _ := run.Steps[3].Input["model"].(string); modelName != "qwen-test" {
-		t.Fatalf("synthesis model is missing from trajectory: %#v", run.Steps[3].Input)
+	if modelName, _ := run.Steps[4].Input["model"].(string); modelName != "qwen-test" {
+		t.Fatalf("synthesis model is missing from trajectory: %#v", run.Steps[4].Input)
 	}
 	if run.PendingApproval == nil || len(run.PendingApproval.ActionIDs) == 0 {
 		t.Fatal("expected durable pending approval")
@@ -69,7 +69,7 @@ func TestEngineEndToEndApprovalAndTrajectory(t *testing.T) {
 	if approved.Status != domain.RunCompleted || approved.PendingApproval != nil {
 		t.Fatalf("approval did not complete run: %#v", approved)
 	}
-	if len(approved.Steps) != 6 || approved.Steps[5].Kind != "approval" {
+	if len(approved.Steps) != 7 || approved.Steps[6].Kind != "approval" {
 		t.Fatalf("approval resume was not appended to trajectory: %#v", approved.Steps)
 	}
 }

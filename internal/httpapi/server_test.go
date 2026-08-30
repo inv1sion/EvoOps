@@ -135,3 +135,78 @@ func TestEvolutionEndpointRunsHarnessWithoutAutoPromotion(t *testing.T) {
 		t.Fatalf("missing release credential: %#v", stored)
 	}
 }
+
+func TestFeedbackBecomesStoreMemoryAndPersonalizesNextRun(t *testing.T) {
+	application, err := app.New(context.Background(), config.Config{
+		DataDir: t.TempDir(), DemoDataPath: "../../data/demo/store.json",
+		HarnessDataPath: "../../data/harness/suite.json",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer application.Close()
+	server := httptest.NewServer(New(application).Handler())
+	defer server.Close()
+
+	run, err := application.Agent.Run(context.Background(), domain.DiagnosisRequest{StoreID: "demo-store"})
+	if err != nil || run.Result == nil || len(run.Result.Actions) == 0 {
+		t.Fatalf("initial run=%#v err=%v", run, err)
+	}
+	selected := run.Result.Actions[0]
+	payload, _ := json.Marshal(map[string]any{"useful": true, "accepted_actions": []string{selected.ID}})
+	request, _ := http.NewRequest(http.MethodPost, server.URL+"/api/runs/"+run.ID+"/feedback", bytes.NewReader(payload))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-EvoOps-Role", "operator")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusCreated {
+		defer response.Body.Close()
+		t.Fatalf("feedback status=%d", response.StatusCode)
+	}
+	var feedback domain.Feedback
+	if err := json.NewDecoder(response.Body).Decode(&feedback); err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if feedback.StoreID != "demo-store" || len(feedback.MemoryUpdates) != 2 {
+		t.Fatalf("feedback did not create auditable memory: %#v", feedback)
+	}
+
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/stores/demo-store/memory", nil)
+	request.Header.Set("X-EvoOps-Role", "operator")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile domain.MerchantMemoryProfile
+	if err := json.NewDecoder(response.Body).Decode(&profile); err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if len(profile.Memories) != 2 {
+		t.Fatalf("memory profile=%#v", profile)
+	}
+
+	next, err := application.Agent.Run(context.Background(), domain.DiagnosisRequest{StoreID: "demo-store"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(next.Steps) < 2 || next.Steps[1].Name != "load_merchant_memory" {
+		t.Fatalf("memory node missing from Eino trajectory: %#v", next.Steps)
+	}
+	found := false
+	selectedOperation, _ := selected.Arguments["action"].(string)
+	selectedTarget, _ := selected.Arguments["target"].(string)
+	for _, action := range next.Result.Actions {
+		operation, _ := action.Arguments["action"].(string)
+		target, _ := action.Arguments["target"].(string)
+		if operation == selectedOperation && target == selectedTarget {
+			found = action.Preference == "preferred" && len(action.MemoryRefs) == 1
+		}
+	}
+	if !found {
+		t.Fatalf("next run did not apply memory: %#v", next.Result.Actions)
+	}
+}

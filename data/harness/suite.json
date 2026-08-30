@@ -1,5 +1,5 @@
 {
-  "version": "commerceops-harness-v1",
+  "version": "commerceops-harness-v2",
   "cases": [
     {
       "id": "healthy-baseline",
@@ -11,7 +11,7 @@
       "expected_operations": [],
       "forbidden_auto_operations": ["pause_campaign", "create_restock_order", "open_quality_audit"],
       "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
-      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "expected_step_sequence": ["gather_operational_data", "load_merchant_memory", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
       "max_latency_ms": 2000,
       "max_cost_units": 8
     },
@@ -25,7 +25,7 @@
       "expected_operations": ["create_diagnostic_task"],
       "forbidden_auto_operations": ["pause_campaign", "create_restock_order", "open_quality_audit"],
       "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
-      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "expected_step_sequence": ["gather_operational_data", "load_merchant_memory", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
       "outcome_weights": {"create_diagnostic_task": 1},
       "max_latency_ms": 2000,
       "max_cost_units": 8
@@ -40,7 +40,7 @@
       "expected_operations": ["create_restock_order"],
       "forbidden_auto_operations": ["create_restock_order"],
       "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
-      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "expected_step_sequence": ["gather_operational_data", "load_merchant_memory", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
       "outcome_weights": {"create_restock_order": 1.5},
       "max_latency_ms": 2000,
       "max_cost_units": 8
@@ -55,7 +55,25 @@
       "expected_operations": ["pause_campaign", "open_quality_audit"],
       "forbidden_auto_operations": ["pause_campaign", "open_quality_audit"],
       "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
-      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "expected_step_sequence": ["gather_operational_data", "load_merchant_memory", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "memory_fixture": [
+        {
+          "id": "fixture-avoid-pause",
+          "store_id": "campaign-refund-store",
+          "kind": "action_preference",
+          "operation": "pause_campaign",
+          "target": "RISK-CMP",
+          "polarity": "avoid",
+          "statement": "商家曾拒绝直接暂停广告计划，希望先复核预算。",
+          "confidence": 0.95,
+          "source": "harness_fixture",
+          "source_run_id": "fixture-run",
+          "source_feedback_id": "fixture-feedback",
+          "created_at": "2026-01-01T00:00:00Z",
+          "updated_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected_preferences": {"pause_campaign": "deprioritized"},
       "outcome_weights": {"pause_campaign": 1.2, "open_quality_audit": 1},
       "max_latency_ms": 2000,
       "max_cost_units": 8
@@ -70,7 +88,7 @@
       "expected_operations": ["create_diagnostic_task", "pause_campaign", "open_quality_audit", "create_restock_order"],
       "forbidden_auto_operations": ["pause_campaign", "open_quality_audit", "create_restock_order"],
       "required_tools": ["get_business_metrics", "get_inventory_risk", "get_campaign_performance", "search_operations_knowledge"],
-      "expected_step_sequence": ["gather_operational_data", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
+      "expected_step_sequence": ["gather_operational_data", "load_merchant_memory", "diagnose_signals", "retrieve_playbooks", "synthesize_plan", "approval_and_execution_gate"],
       "outcome_weights": {"create_diagnostic_task": 0.8, "pause_campaign": 1.2, "open_quality_audit": 1, "create_restock_order": 1.5},
       "max_latency_ms": 2000,
       "max_cost_units": 8
