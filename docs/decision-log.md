@@ -39,3 +39,9 @@ A policy that passed against an older baseline is not automatically safe relativ
 **Decision:** learn only typed, source-linked memory facts from explicit feedback and normalized KPI outcomes. Use them to annotate and order matching actions, never to modify action risk, tool arguments, or approval thresholds.
 
 Free-form memory injected directly into a planner can become an unreviewed control channel and makes tenant isolation difficult to prove. EvoOps therefore validates feedback action IDs against the referenced run, persists profiles under hashed tenant keys, surfaces every applied fact in the evidence chain, and evaluates fixed memory snapshots in the Harness. The tradeoff is deliberately narrower personalization, but its behavior is explainable, replayable, and safe to evolve.
+
+## ADR-007: one bounded advertising ROI scenario
+
+**Decision:** keep the demo agent focused on campaign ROI diagnosis instead of routing across traffic, conversion, refund, and inventory domains.
+
+A single business point makes the input contract, evidence, action boundary, and evaluation labels easy to explain and test. The production graph reads only campaign performance, detects active plans below a versioned ROI threshold, creates an attribution-review task, and guards campaign suspension. Broader commerce domains can reuse the framework later, but they must bring their own data contracts and Harness cases rather than silently expanding this agent's authority.

@@ -79,12 +79,12 @@ func demo(args []string) {
 	ctx := context.Background()
 	application := bootstrap(ctx)
 	defer application.Close()
-	run, err := application.Agent.Run(ctx, domain.DiagnosisRequest{StoreID: *storeID, Question: "Diagnose the current operating decline and propose evidence-backed actions."})
+	run, err := application.Agent.Run(ctx, domain.DiagnosisRequest{StoreID: *storeID, Question: "找出低 ROI 广告并给出受控处置建议。"})
 	if err != nil {
 		log.Fatal(err)
 	}
 	if *approve && run.Status == domain.RunWaitingApproval {
-		run, err = application.Agent.Approve(ctx, run.ID, domain.ApprovalDecision{Approved: true, Reason: "CLI demo approval"})
+		run, err = application.Agent.Approve(ctx, run.ID, domain.ApprovalDecision{Approved: true, Reason: "CLI 演示：已人工复核广告暂停操作"})
 		if err != nil {
 			log.Fatal(err)
 		}

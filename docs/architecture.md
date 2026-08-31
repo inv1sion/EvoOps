@@ -2,7 +2,7 @@
 
 ## System boundary
 
-EvoOps separates probabilistic presentation from deterministic business control. An optional model may synthesize a narrative, but policy selects anomaly thresholds, typed code builds signals and actions, and the approval gate owns side effects. The same compiled Eino workflow is therefore usable for both live execution and offline release evaluation.
+EvoOps separates probabilistic presentation from deterministic business control. An optional model may synthesize the advertising diagnosis, but policy selects the low-ROI threshold, typed code builds signals and actions, and the approval gate owns side effects. The same compiled Eino workflow is therefore usable for both live execution and offline release evaluation.
 
 ```text
 online plane                              learning and release plane
@@ -22,12 +22,12 @@ approval / execution                      failure attribution
 
 ## Online sequence
 
-1. `gather_operational_data` invokes typed Eino tools for metrics, inventory, and campaign state.
+1. `gather_campaign_data` invokes one typed Eino tool for campaign status, spend, revenue, current ROI, and previous ROI.
 2. `load_merchant_memory` reads the store-scoped memory profile. Each fact retains its feedback, run, confidence, and timestamp lineage.
-3. `diagnose_signals` applies the selected versioned policy and creates evidence-linked signals and proposed actions. Matching memory can reorder and annotate actions, but cannot alter risk, tool arguments, or approval policy.
-4. `retrieve_playbooks` queries a multi-level corpus. Dense and BM25 rankings are fused with weighted RRF; related leaves can merge to their parent; deterministic reranking favors exact business phrases.
-5. `synthesize_plan` uses a local synthesizer or an Eino OpenAI-compatible `ChatModel`. Provider failure falls back to deterministic text and stays visible in the trajectory.
-6. `approval_and_execution_gate` executes only actions below the configured risk threshold. Medium/high-risk actions remain in a durable approval request.
+3. `diagnose_campaign_roi` ignores inactive campaigns, compares active plans with the selected policy threshold, and creates evidence-linked signals. Each low-ROI plan receives a low-risk attribution-review task and a high-risk pause proposal. Matching memory can reorder and annotate those actions, but cannot alter risk, tool arguments, or approval policy.
+4. `retrieve_ad_playbook` queries the advertising corpus. Dense and BM25 rankings are fused with weighted RRF; related leaves can merge to their parent; deterministic reranking favors exact business phrases.
+5. `synthesize_ad_plan` uses a local synthesizer or an Eino OpenAI-compatible `ChatModel`. The policy's prompt revision selects real grounding instructions. Provider failure falls back to deterministic text and stays visible in the trajectory.
+6. `approval_and_execution_gate` automatically executes only the diagnostic task. Campaign suspension remains in a durable approval request.
 7. Approval resumes the exact persisted action IDs. Newly generated work cannot be inserted into an existing approval.
 
 Replay supplies a caller-selected policy, runs the same graph, suppresses repository writes, replaces side effects with `would_execute`, and uses an isolated memory snapshot. Versioned memory fixtures let longitudinal Harness cases exercise personalization without allowing local feedback to contaminate a release evaluation.
@@ -89,7 +89,7 @@ The aggregate release decision requires every case and layer to pass. A candidat
 
 ## Self-evolution boundary
 
-The mutable policy surface includes anomaly thresholds, hybrid-retrieval parameters, query-rewrite/rerank controls, prompt/routing revision, workflow budgets, cost budget, and approval threshold. Failure attribution emits allowed fields; candidate generation enforces that allowlist in code.
+The mutable policy surface includes the campaign ROI threshold, hybrid-retrieval parameters, query-rewrite/rerank controls, grounded prompt revision, workflow budgets, cost budget, and approval threshold. Failure attribution emits allowed fields; candidate generation enforces that allowlist in code.
 
 Source code, tool implementations, identity adapters, and arbitrary tool arguments remain outside the loop. Safety attribution may tighten approval to `low`; no automated path relaxes it.
 

@@ -10,8 +10,6 @@ import (
 )
 
 const (
-	ToolMetrics   = "get_business_metrics"
-	ToolInventory = "get_inventory_risk"
 	ToolCampaigns = "get_campaign_performance"
 	ToolKnowledge = "search_operations_knowledge"
 	ToolExecute   = "execute_operation"
@@ -36,23 +34,7 @@ type knowledgeInput struct {
 }
 
 func RegisterLocal(ctx context.Context, registry *Registry, repo dataset.Repository) error {
-	metrics, err := utils.InferTool(ToolMetrics, "Read current and baseline business metrics for a store.",
-		func(ctx context.Context, input storeInput) (domain.MetricsSnapshot, error) {
-			store, err := repo.Store(ctx, input.StoreID)
-			return store.Metrics, err
-		})
-	if err != nil {
-		return err
-	}
-	inventory, err := utils.InferTool(ToolInventory, "Read SKU stock cover, stockout duration, and contribution risk.",
-		func(ctx context.Context, input storeInput) ([]domain.InventoryItem, error) {
-			store, err := repo.Store(ctx, input.StoreID)
-			return store.Inventory, err
-		})
-	if err != nil {
-		return err
-	}
-	campaigns, err := utils.InferTool(ToolCampaigns, "Read campaign spend, revenue, ROI, budget, and status.",
+	campaigns, err := utils.InferTool(ToolCampaigns, "读取广告计划状态、消耗、成交额、当前 ROI 与历史 ROI。",
 		func(ctx context.Context, input storeInput) ([]domain.Campaign, error) {
 			store, err := repo.Store(ctx, input.StoreID)
 			return store.Campaigns, err
@@ -60,7 +42,7 @@ func RegisterLocal(ctx context.Context, registry *Registry, repo dataset.Reposit
 	if err != nil {
 		return err
 	}
-	knowledge, err := utils.InferTool(ToolKnowledge, "Run hybrid dense and BM25 retrieval, reciprocal-rank fusion, hierarchical auto-merging, reranking, and optional query rewriting over operating playbooks.",
+	knowledge, err := utils.InferTool(ToolKnowledge, "检索广告投放诊断与低 ROI 处置手册。",
 		func(ctx context.Context, input knowledgeInput) (domain.RetrievalResult, error) {
 			return repo.SearchKnowledge(ctx, input.StoreID, input.Query, domain.RetrievalConfig{
 				TopK: input.TopK, CandidateK: input.CandidateK, DenseWeight: input.DenseWeight,
@@ -72,7 +54,7 @@ func RegisterLocal(ctx context.Context, registry *Registry, repo dataset.Reposit
 	if err != nil {
 		return err
 	}
-	execute, err := utils.InferTool(ToolExecute, "Execute an approved business operation. This tool must be protected by a human approval gate.",
+	execute, err := utils.InferTool(ToolExecute, "执行广告诊断任务或经人工审批的广告暂停操作。",
 		func(ctx context.Context, input dataset.OperationInput) (dataset.OperationReceipt, error) {
 			if input.Action == "" || input.Target == "" {
 				return dataset.OperationReceipt{}, fmt.Errorf("action and target are required")
@@ -80,12 +62,6 @@ func RegisterLocal(ctx context.Context, registry *Registry, repo dataset.Reposit
 			return repo.Execute(ctx, input)
 		})
 	if err != nil {
-		return err
-	}
-	if err := registry.Register(ctx, metrics); err != nil {
-		return err
-	}
-	if err := registry.Register(ctx, inventory); err != nil {
 		return err
 	}
 	if err := registry.Register(ctx, campaigns); err != nil {

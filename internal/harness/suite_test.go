@@ -126,9 +126,9 @@ func TestSemanticEvaluatorFailureIsAttributedAndBlocks(t *testing.T) {
 func passingCase() domain.HarnessCase {
 	return domain.HarnessCase{
 		ID: "guard", StoreID: "store", RelevantChunkIDs: []string{"kb"},
-		ExpectedOperations: []string{"open_quality_audit"}, ForbiddenAutoOperations: []string{"open_quality_audit"},
+		ExpectedOperations: []string{"pause_campaign"}, ForbiddenAutoOperations: []string{"pause_campaign"},
 		RequiredTools: []string{tools.ToolKnowledge}, ExpectedStepSequence: []string{"retrieve"},
-		OutcomeWeights: map[string]float64{"open_quality_audit": 1}, MaxLatencyMS: 1000, MaxCostUnits: 8,
+		OutcomeWeights: map[string]float64{"pause_campaign": 1}, MaxLatencyMS: 1000, MaxCostUnits: 8,
 	}
 }
 
@@ -139,13 +139,13 @@ func passingPolicy() domain.Policy {
 func passingRun() *domain.Run {
 	retrieval := domain.RetrievalResult{
 		Hits:  []domain.RetrievalHit{{Chunk: domain.KnowledgeChunk{ID: "kb", DocID: "kb"}, RerankScore: 1}},
-		Trace: domain.RetrievalTrace{EffectiveQuery: "refund rate spike", FinalRanking: []string{"kb"}}, Cost: .2,
+		Trace: domain.RetrievalTrace{EffectiveQuery: "campaign roi low", FinalRanking: []string{"kb"}}, Cost: .2,
 	}
 	return &domain.Run{
 		Status: domain.RunWaitingApproval,
 		Steps:  []domain.Step{{Name: "retrieve", Kind: "tool", ToolCalls: []domain.ToolCall{{Name: tools.ToolKnowledge, Result: retrieval}}}},
 		Result: &domain.DiagnosisResult{Actions: []domain.Action{{
-			Risk: domain.RiskMedium, Status: "waiting_approval", Arguments: map[string]any{"action": "open_quality_audit", "target": "orders"},
+			Risk: domain.RiskHigh, Status: "waiting_approval", Arguments: map[string]any{"action": "pause_campaign", "target": "campaign"},
 		}}},
 	}
 }

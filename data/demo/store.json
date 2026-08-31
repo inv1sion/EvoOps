@@ -2,48 +2,6 @@
   {
     "store_id": "demo-store",
     "store_name": "北辰生活方式旗舰店",
-    "metrics": {
-      "current": {
-        "label": "最近7天",
-        "revenue": 68000,
-        "orders": 660,
-        "visitors": 30000,
-        "conversion_rate": 0.022,
-        "refund_rate": 0.095,
-        "ad_spend": 18000,
-        "ad_revenue": 22600
-      },
-      "previous": {
-        "label": "前7天",
-        "revenue": 90000,
-        "orders": 1092,
-        "visitors": 42000,
-        "conversion_rate": 0.026,
-        "refund_rate": 0.041,
-        "ad_spend": 17200,
-        "ad_revenue": 42100
-      }
-    },
-    "inventory": [
-      {
-        "sku": "SKU-HERO-01",
-        "name": "主推保温杯",
-        "available": 42,
-        "daily_sales": 18,
-        "stockout_hours": 6,
-        "estimated_cover_days": 2.3,
-        "revenue_contribution_rate": 0.31
-      },
-      {
-        "sku": "SKU-BAG-02",
-        "name": "日常帆布包",
-        "available": 520,
-        "daily_sales": 22,
-        "stockout_hours": 0,
-        "estimated_cover_days": 23.6,
-        "revenue_contribution_rate": 0.18
-      }
-    ],
     "campaigns": [
       {
         "id": "CMP-SEARCH-01",
@@ -61,84 +19,71 @@
         "name": "回访用户再营销",
         "status": "active",
         "spend": 5900,
-        "revenue": 8900,
-        "roi": 1.51,
-        "previous_roi": 1.62,
+        "revenue": 10915,
+        "roi": 1.85,
+        "previous_roi": 1.78,
         "daily_budget": 900,
         "audience": "7天内回访用户"
       }
     ],
     "knowledge": [
       {
-        "id": "KB-CONVERSION-01",
-        "title": "转化率下降排查",
-        "content": "转化率下降时，应按流量来源、设备、商品页和结算步骤拆分漏斗。在增加流量投入前，先核验价格、优惠券资格和页面延迟。",
-        "tags": ["conversion", "conversion drop", "funnel", "price"]
-      },
-      {
-        "id": "KB-TRAFFIC-01",
-        "title": "流量异常处置手册",
-        "content": "流量下降时，对比付费、自然、联盟和回访用户群体，检查广告投放、搜索排名、内容节奏和归因链路是否异常。",
-        "tags": ["traffic", "traffic drop", "visitors", "campaign"]
-      },
-      {
-        "id": "KB-STOCK-01",
-        "title": "缺货风险控制",
-        "content": "按预期成交损失、供应商交期和替代率确定补货优先级。高影响采购或补货操作必须经过人工审批。",
-        "tags": ["inventory", "stockout", "stockout risk", "replenishment"]
-      },
-      {
         "id": "KB-ADS-01",
-        "title": "低投产广告处置",
-        "content": "广告 ROI 偏低时，先核验转化追踪和边际 ROI。暂停或调整预算虽然可回滚，但涉及显著消耗时仍需审批。",
-        "tags": ["campaign", "campaign roi low", "roi", "advertising"]
-      },
-      {
-        "id": "KB-REFUND-01",
-        "title": "退款率诊断",
-        "content": "按原因、商品、供应商、仓库和承运商拆分退款，在定位履约与商品质量问题时保留需求侧指标。",
-        "tags": ["refund", "refund rate spike", "quality", "fulfillment"]
+        "title": "低 ROI 广告处置手册",
+        "content": "广告 ROI 低于策略阈值时，先创建归因复核任务，检查转化追踪、受众和素材效率。暂停广告会改变线上投放状态，必须经过人工审批并保留审计轨迹。",
+        "tags": ["campaign", "campaign roi low", "roi", "advertising", "广告投放", "归因复核"]
       }
     ]
   },
   {
     "store_id": "healthy-store",
-    "store_name": "健康基线店铺",
-    "metrics": {
-      "current": {"label":"最近7天","revenue":100000,"orders":1200,"visitors":40000,"conversion_rate":0.03,"refund_rate":0.035,"ad_spend":15000,"ad_revenue":36000},
-      "previous": {"label":"前7天","revenue":96000,"orders":1131,"visitors":39000,"conversion_rate":0.029,"refund_rate":0.037,"ad_spend":14800,"ad_revenue":34000}
-    },
-    "inventory": [{"sku":"SAFE-1","name":"健康商品","available":500,"daily_sales":20,"stockout_hours":0,"estimated_cover_days":25,"revenue_contribution_rate":0.2}],
-    "campaigns": [{"id":"SAFE-CMP","name":"健康广告计划","status":"active","spend":10000,"revenue":23000,"roi":2.3,"previous_roi":2.2,"daily_budget":1500,"audience":"广泛人群"}]
+    "store_name": "健康投放店铺",
+    "campaigns": [
+      {
+        "id": "HEALTHY-CMP",
+        "name": "稳定搜索广告",
+        "status": "active",
+        "spend": 10000,
+        "revenue": 23000,
+        "roi": 2.3,
+        "previous_roi": 2.2,
+        "daily_budget": 1500,
+        "audience": "高意向搜索人群"
+      }
+    ]
   },
   {
-    "store_id": "traffic-store",
-    "store_name": "流量与转化回落店铺",
-    "metrics": {
-      "current": {"label":"最近7天","revenue":68000,"orders":660,"visitors":30000,"conversion_rate":0.022,"refund_rate":0.04,"ad_spend":12000,"ad_revenue":26000},
-      "previous": {"label":"前7天","revenue":90000,"orders":1092,"visitors":42000,"conversion_rate":0.026,"refund_rate":0.041,"ad_spend":12000,"ad_revenue":28000}
-    },
-    "inventory": [{"sku":"SAFE-2","name":"安全商品","available":400,"daily_sales":20,"stockout_hours":0,"estimated_cover_days":20,"revenue_contribution_rate":0.3}],
-    "campaigns": [{"id":"SAFE-CMP-2","name":"稳定广告计划","status":"active","spend":10000,"revenue":20000,"roi":2,"previous_roi":2.1,"daily_budget":1500,"audience":"广泛人群"}]
+    "store_id": "paused-store",
+    "store_name": "已暂停广告店铺",
+    "campaigns": [
+      {
+        "id": "PAUSED-CMP",
+        "name": "已暂停低效广告",
+        "status": "paused",
+        "spend": 6000,
+        "revenue": 4800,
+        "roi": 0.8,
+        "previous_roi": 1.2,
+        "daily_budget": 0,
+        "audience": "泛兴趣人群"
+      }
+    ]
   },
   {
-    "store_id": "stock-store",
-    "store_name": "库存风险店铺",
-    "metrics": {
-      "current": {"label":"最近7天","revenue":100000,"orders":1200,"visitors":40000,"conversion_rate":0.03,"refund_rate":0.035,"ad_spend":15000,"ad_revenue":36000},
-      "previous": {"label":"前7天","revenue":99000,"orders":1180,"visitors":39800,"conversion_rate":0.0296,"refund_rate":0.035,"ad_spend":15000,"ad_revenue":35500}
-    },
-    "inventory": [{"sku":"RISK-1","name":"主推商品","available":20,"daily_sales":10,"stockout_hours":3,"estimated_cover_days":2,"revenue_contribution_rate":0.4}],
-    "campaigns": [{"id":"SAFE-CMP-3","name":"健康广告计划","status":"active","spend":10000,"revenue":24000,"roi":2.4,"previous_roi":2.3,"daily_budget":1500,"audience":"广泛人群"}]
-  },
-  {
-    "store_id": "campaign-refund-store",
-    "store_name": "广告与退款风险店铺",
-    "metrics": {
-      "current": {"label":"最近7天","revenue":91000,"orders":950,"visitors":40000,"conversion_rate":0.025,"refund_rate":0.11,"ad_spend":20000,"ad_revenue":22000},
-      "previous": {"label":"前7天","revenue":93000,"orders":980,"visitors":40200,"conversion_rate":0.0255,"refund_rate":0.04,"ad_spend":16000,"ad_revenue":35000}
-    },
-    "inventory": [{"sku":"SAFE-4","name":"安全商品","available":400,"daily_sales":20,"stockout_hours":0,"estimated_cover_days":20,"revenue_contribution_rate":0.3}],
-    "campaigns": [{"id":"RISK-CMP","name":"低效搜索广告","status":"active","spend":15000,"revenue":16500,"roi":1.1,"previous_roi":2.2,"daily_budget":2100,"audience":"搜索人群"}]
+    "store_id": "low-roi-store",
+    "store_name": "低 ROI 投放店铺",
+    "campaigns": [
+      {
+        "id": "LOW-ROI-CMP",
+        "name": "低效搜索广告",
+        "status": "active",
+        "spend": 15000,
+        "revenue": 16500,
+        "roi": 1.1,
+        "previous_roi": 2.2,
+        "daily_budget": 2100,
+        "audience": "类目搜索人群"
+      }
+    ]
   }
 ]

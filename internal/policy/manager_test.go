@@ -62,6 +62,30 @@ func TestSafetyAttributionOnlyTightensApproval(t *testing.T) {
 	}
 }
 
+func TestOutcomeAttributionOnlyAdjustsCampaignROIThreshold(t *testing.T) {
+	ctx := context.Background()
+	repo, err := repository.NewFile(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(ctx, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := manager.GenerateCandidateFrom(ctx, []domain.FailureAttribution{{
+		Category: "outcome", AllowedMutations: []string{"campaign_roi_threshold"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if candidate.CampaignROIThreshold <= DefaultPolicy().CampaignROIThreshold {
+		t.Fatalf("outcome miss did not increase ROI sensitivity: %.2f", candidate.CampaignROIThreshold)
+	}
+	if len(candidate.Mutations) != 1 || candidate.Mutations[0].Field != "campaign_roi_threshold" {
+		t.Fatalf("unexpected mutations: %#v", candidate.Mutations)
+	}
+}
+
 func TestReleaseCredentialMustMatchCurrentBaselineAndCanary(t *testing.T) {
 	ctx := context.Background()
 	repo, err := repository.NewFile(t.TempDir())

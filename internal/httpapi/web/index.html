@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>EvoOps · 商家经营智能助手</title>
+  <title>EvoOps · 广告投放 ROI 智能助手</title>
   <style>
     :root {
       color-scheme: dark;
@@ -106,7 +106,7 @@
 <header>
   <div class="brand">Evo<span>Ops</span></div>
   <nav class="top-nav" aria-label="产品区域">
-    <button id="tab-assistant" class="active" aria-selected="true">经营助手</button>
+    <button id="tab-assistant" class="active" aria-selected="true">广告助手</button>
     <button id="tab-lab" aria-selected="false">Agent 实验室</button>
   </nav>
   <div class="service"><i class="dot"></i><span id="health">正在检查服务状态</span></div>
@@ -116,52 +116,50 @@
   <section id="assistant-view" class="view active">
     <div class="assistant-layout">
       <aside class="panel query-panel">
-        <div class="eyebrow">商家经营助手</div>
-        <h1>今天想解决什么经营问题？</h1>
-        <p>直接描述问题，系统会结合经营数据给出原因、行动和需要审批的操作。</p>
+        <div class="eyebrow">广告投放 ROI 助手</div>
+        <h1>哪些广告正在低效消耗？</h1>
+        <p>系统只分析投放中的广告计划，依据 ROI 找出低效计划并给出受控行动。</p>
         <label for="question">你的问题</label>
-        <textarea id="question" placeholder="例如：为什么最近成交下降？">诊断当前经营下滑，并提出有证据支撑的行动。</textarea>
+        <textarea id="question" placeholder="例如：哪些广告计划 ROI 偏低？">找出低 ROI 广告并给出受控处置建议。</textarea>
         <div class="quick-prompts">
-          <button class="ghost prompt" data-prompt="为什么最近成交下降？">成交下降</button>
-          <button class="ghost prompt" data-prompt="检查是否存在广告浪费，并给出行动建议。">广告浪费</button>
-          <button class="ghost prompt" data-prompt="检查主推商品是否存在缺货风险。">缺货风险</button>
+          <button class="ghost prompt" data-prompt="哪些广告计划 ROI 偏低？">低 ROI 广告</button>
+          <button class="ghost prompt" data-prompt="检查搜索广告的投产效率。">搜索广告</button>
+          <button class="ghost prompt" data-prompt="哪些低效广告适合暂停？">暂停建议</button>
         </div>
         <button id="run" class="primary-action">开始分析</button>
         <div class="query-footer"><button id="refresh" class="ghost">查看最近结果</button><span id="query-store" class="pill">demo-store</span></div>
         <details class="settings">
-          <summary>诊断设置</summary>
+          <summary>店铺设置</summary>
           <label for="store">店铺编号</label><input id="store" value="demo-store">
-          <label for="window">分析周期</label>
-          <select id="window"><option value="7">最近 7 天</option><option value="14">最近 14 天</option><option value="30">最近 30 天</option></select>
         </details>
       </aside>
 
       <section class="result-stack">
         <div class="panel answer">
           <div class="answer-top">
-            <div><div class="eyebrow">本次经营结论</div><h1 id="summary">准备开始经营分析。</h1><p id="runmeta">提出一个问题后，这里会展示结论、主要原因和建议行动。</p></div>
+            <div><div class="eyebrow">本次广告结论</div><h1 id="summary">准备检查广告 ROI。</h1><p id="runmeta">提出问题后，这里会展示低 ROI 计划、证据和处置建议。</p></div>
             <div class="run-meta"><span class="pill" id="status">空闲</span><span class="pill" id="runid">运行 —</span></div>
           </div>
           <div class="summary-stats">
-            <div class="stat"><strong id="signalcount">0</strong><span>个经营信号</span></div>
+            <div class="stat"><strong id="signalcount">0</strong><span>个低 ROI 计划</span></div>
             <div class="stat"><strong id="actioncount">0</strong><span>项建议行动</span></div>
             <div class="stat"><strong id="approvalcount">0</strong><span>项需要审批</span></div>
           </div>
         </div>
 
         <div id="approval-banner" class="approval-banner">
-          <div><strong>有行动需要你确认</strong><br><span style="color:var(--muted)">系统不会自动执行中高风险经营操作。</span></div>
+          <div><strong>暂停广告需要你确认</strong><br><span style="color:var(--muted)">系统不会自动暂停任何广告计划。</span></div>
           <div class="buttons"><button onclick="approve(true)">批准行动</button><button class="danger" onclick="approve(false)">拒绝</button></div>
         </div>
 
         <div class="assistant-grid">
           <div class="panel section">
-            <div class="toolbar"><h2>主要原因</h2><button class="ghost" onclick="openLab('evidence')">查看依据</button></div>
-            <div id="signals" class="empty">分析完成后展示关键经营变化。</div>
+            <div class="toolbar"><h2>低 ROI 计划</h2><button class="ghost" onclick="openLab('evidence')">查看依据</button></div>
+            <div id="signals" class="empty">分析完成后展示低于策略阈值的广告。</div>
           </div>
           <div class="panel section">
             <div class="toolbar"><h2>建议行动</h2><span class="pill">风险受控</span></div>
-            <div id="actions" class="empty">分析完成后展示可执行建议。</div>
+            <div id="actions" class="empty">分析完成后展示归因复核与暂停建议。</div>
             <div id="runfeedback"></div>
           </div>
         </div>
@@ -189,13 +187,13 @@
         </div>
 
         <div id="lab-trajectory" class="lab-section active panel section">
-          <div class="toolbar"><div><h2>完整执行轨迹</h2><p style="margin:3px 0 0">查看 Eino 节点、工具调用和技术载荷。</p></div></div>
-          <div id="timeline" class="empty">运行一次经营分析后展示完整轨迹。</div>
+          <div class="toolbar"><div><h2>完整执行轨迹</h2><p style="margin:3px 0 0">查看广告 ROI 工作流的 Eino 节点、工具调用和技术载荷。</p></div></div>
+          <div id="timeline" class="empty">运行一次广告分析后展示完整轨迹。</div>
         </div>
 
         <div id="lab-evidence" class="lab-section panel section">
-          <div class="toolbar"><div><h2>诊断证据链</h2><p style="margin:3px 0 0">指标、库存、广告、知识库和记忆证据。</p></div></div>
-          <div id="evidence" class="empty">运行一次经营分析后展示证据。</div>
+          <div class="toolbar"><div><h2>广告证据链</h2><p style="margin:3px 0 0">广告计划数据、处置手册和商家记忆。</p></div></div>
+          <div id="evidence" class="empty">运行一次广告分析后展示证据。</div>
         </div>
 
         <div id="lab-memory" class="lab-section panel section">
@@ -204,7 +202,7 @@
         </div>
 
         <div id="lab-evolution" class="lab-section panel section">
-          <div class="toolbar"><div><h2>受控自进化</h2><p style="margin:3px 0 0">基线回放 → 失败归因 → 候选策略 → 多层门禁 → 灰度验证。</p></div><button id="evolve">运行自进化评测</button></div>
+          <div class="toolbar"><div><h2>受控自进化</h2><p style="margin:3px 0 0">广告用例回放 → 失败归因 → 候选策略 → 多层门禁 → 灰度验证。</p></div><button id="evolve">运行自进化评测</button></div>
           <div id="evolution" class="empty">尚未在本次页面会话中运行评测。</div>
         </div>
       </section>
@@ -215,16 +213,16 @@
 <div class="toast" id="toast"></div>
 <script>
 const $=id=>document.getElementById(id); let current=null,evolutionLoaded=false;
-const signalLabels={conversion_drop:'转化率下降',traffic_drop:'流量下降',refund_rate_spike:'退款率升高',campaign_roi_low:'广告投产偏低',stockout_risk:'缺货风险'};
+const signalLabels={campaign_roi_low:'广告 ROI 低于阈值'};
 const statusLabels={running:'运行中',waiting_approval:'待审批',completed:'已完成',rejected:'已拒绝',failed:'失败',proposed:'待执行',executed:'已执行',would_execute:'模拟执行'};
 const riskLabels={low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'};
-const toolLabels={get_business_metrics:'经营指标',get_inventory_risk:'库存数据',get_campaign_performance:'广告效果',search_operations_knowledge:'经营知识库',execute_operation:'经营操作',merchant_memory:'商家长期记忆'};
-const stepLabels={gather_operational_data:'采集经营数据',load_merchant_memory:'读取商家长期记忆',diagnose_signals:'诊断经营信号',retrieve_playbooks:'检索处置手册',synthesize_plan:'生成经营方案',approval_and_execution_gate:'审批与执行门禁',resume_approved_operations:'恢复已审批操作'};
+const toolLabels={get_campaign_performance:'广告计划数据',search_operations_knowledge:'广告处置手册',execute_operation:'广告操作',merchant_memory:'商家长期记忆'};
+const stepLabels={gather_campaign_data:'读取广告计划',load_merchant_memory:'读取商家长期记忆',diagnose_campaign_roi:'判断低 ROI 计划',retrieve_ad_playbook:'检索广告处置手册',synthesize_ad_plan:'生成广告诊断',approval_and_execution_gate:'审批与执行门禁',resume_approved_operations:'恢复已审批操作'};
 const kindLabels={workflow:'工作流',memory:'长期记忆',reasoning:'规则诊断',rag:'检索增强',model:'模型生成',guard:'安全门禁',approval:'审批恢复',tool:'工具调用'};
 const preferenceLabels={preferred:'历史偏好',deprioritized:'历史上不偏好'};
 const memoryKindLabels={action_preference:'行动偏好',action_outcome:'行动结果',diagnosis_episode:'诊断反馈'};
 const layerLabels={retrieval:'检索质量',trajectory:'轨迹质量',safety:'工具安全',outcome:'业务效果',model_quality:'模型事实与任务核验',cost:'成本性能'};
-const mutationLabels={retrieval_top_k:'检索结果数',retrieval_candidate_k:'检索候选数',dense_weight:'语义检索权重',sparse_weight:'关键词检索权重',rrf_k:'融合排序常数',merge_threshold:'片段合并阈值',relevance_threshold:'相关性阈值',rerank_enabled:'是否启用重排',query_rewrite_strategy:'查询改写策略',prompt_revision:'提示词版本',routing_revision:'路由版本',max_workflow_steps:'最大工作流步骤数',max_tool_calls:'最大工具调用数',required_approval_risk:'需审批的最低风险等级',tool_allowlist:'工具白名单',conversion_drop_threshold:'转化下降阈值',traffic_drop_threshold:'流量下降阈值',refund_rate_threshold:'退款率阈值',campaign_roi_threshold:'广告投产阈值',stock_cover_days_threshold:'库存覆盖天数阈值',max_cost_units:'最大成本单位'};
+const mutationLabels={retrieval_top_k:'检索结果数',retrieval_candidate_k:'检索候选数',dense_weight:'语义检索权重',sparse_weight:'关键词检索权重',rrf_k:'融合排序常数',merge_threshold:'片段合并阈值',relevance_threshold:'相关性阈值',rerank_enabled:'是否启用重排',query_rewrite_strategy:'查询改写策略',prompt_revision:'提示词版本',max_workflow_steps:'最大工作流步骤数',max_tool_calls:'最大工具调用数',required_approval_risk:'需审批的最低风险等级',tool_allowlist:'工具白名单',campaign_roi_threshold:'低 ROI 识别阈值',max_cost_units:'最大成本单位'};
 const valueLabels={true:'是',false:'否',none:'不改写',step_back:'上位问题改写',hyde:'假设文档改写',low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'};
 const label=(labels,value)=>labels[value]||value;
 const displayValue=value=>valueLabels[String(value)]??value;
@@ -250,8 +248,8 @@ function render(run){
   $('query-store').textContent=run.request.store_id;$('store').value=run.request.store_id;
   $('signalcount').textContent=signals.length;$('actioncount').textContent=actions.length;$('approvalcount').textContent=pending.length;
   $('lab-title').textContent=`${run.request.store_id} · ${label(statusLabels,run.status)}`;$('stepcount').textContent=run.steps.length+' 个步骤';
-  $('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(label(signalLabels,s.name))}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):'当前没有超过策略阈值的显著异常。';
-  $('actions').className=actions.length?'':'empty';$('actions').innerHTML=actions.length?actions.map(a=>`<div class="action"><div class="action-head"><strong>${esc(a.title)}</strong><span class="risk ${esc(a.risk)}">${esc(label(riskLabels,a.risk))}</span></div><small>${esc(a.expected_impact)}</small><div class="action-footer"><div><span class="pill">${esc(label(statusLabels,a.status))}</span>${a.preference?`<span class="pill ${esc(a.preference)}">${esc(label(preferenceLabels,a.preference))}</span>`:''}</div><div class="buttons feedback-buttons"><button class="ghost" onclick="openLab('evidence')">依据</button><button class="secondary" onclick="feedbackAction('${esc(a.id)}',true)">适合我</button><button class="secondary" onclick="feedbackAction('${esc(a.id)}',false)">不适合</button></div></div></div>`).join(''):'当前没有需要执行的经营行动。';
+  $('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(label(signalLabels,s.name))}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):'当前没有投放中的广告低于 ROI 阈值。';
+  $('actions').className=actions.length?'':'empty';$('actions').innerHTML=actions.length?actions.map(a=>`<div class="action"><div class="action-head"><strong>${esc(a.title)}</strong><span class="risk ${esc(a.risk)}">${esc(label(riskLabels,a.risk))}</span></div><small>${esc(a.expected_impact)}</small><div class="action-footer"><div><span class="pill">${esc(label(statusLabels,a.status))}</span>${a.preference?`<span class="pill ${esc(a.preference)}">${esc(label(preferenceLabels,a.preference))}</span>`:''}</div><div class="buttons feedback-buttons"><button class="ghost" onclick="openLab('evidence')">依据</button><button class="secondary" onclick="feedbackAction('${esc(a.id)}',true)">适合我</button><button class="secondary" onclick="feedbackAction('${esc(a.id)}',false)">不适合</button></div></div></div>`).join(''):'当前没有需要执行的广告行动。';
   $('approval-banner').classList.toggle('show',run.status==='waiting_approval');
   $('runfeedback').innerHTML=run.result?'<div class="buttons feedback-buttons" style="margin-top:14px"><span style="color:var(--muted)">这次诊断：</span><button class="ghost" onclick="feedbackRun(true)">有帮助</button><button class="ghost" onclick="feedbackRun(false)">没帮助</button></div>':'';
   const ev=result.evidence||[];$('evidence').className=ev.length?'':'empty';$('evidence').innerHTML=ev.length?ev.map(e=>`<div class="evidence"><strong>${esc(e.ref)}</strong><br><small>${esc(label(toolLabels,e.source))}</small><p>${esc(e.excerpt)}</p></div>`).join(''):'暂无诊断证据。';
@@ -259,8 +257,8 @@ function render(run){
   loadMemory(run.request.store_id);
 }
 
-async function run(){const b=$('run');b.disabled=true;b.textContent='正在分析…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value,window_days:Number($('window').value)})}));toast('经营分析已完成')}catch(e){toast('请求失败：'+e.message)}finally{b.disabled=false;b.textContent='开始分析'}}
-async function approve(approved){if(!current)return;try{render(await request(`/api/runs/${current.id}/approve`,{method:'POST',body:JSON.stringify({approved,reason:approved?'已在经营助手完成人工复核':'商家拒绝执行本次高风险操作'})}));toast(approved?'行动已执行':'行动已拒绝')}catch(e){toast('请求失败：'+e.message)}}
+async function run(){const b=$('run');b.disabled=true;b.textContent='正在分析…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value})}));toast('广告 ROI 分析已完成')}catch(e){toast('请求失败：'+e.message)}finally{b.disabled=false;b.textContent='开始分析'}}
+async function approve(approved){if(!current)return;try{render(await request(`/api/runs/${current.id}/approve`,{method:'POST',body:JSON.stringify({approved,reason:approved?'已在广告助手完成人工复核':'商家拒绝暂停本次广告计划'})}));toast(approved?'行动已执行':'行动已拒绝')}catch(e){toast('请求失败：'+e.message)}}
 async function feedbackAction(actionID,accepted){if(!current)return;const comment=accepted?'':window.prompt('可以补充不适合的原因（可留空）：','')||'';try{const body={useful:true,comment,accepted_actions:accepted?[actionID]:[],rejected_actions:accepted?[]:[actionID]};const result=await request(`/api/runs/${current.id}/feedback`,{method:'POST',body:JSON.stringify(body)});toast(`已形成 ${result.memory_updates?.length||0} 条记忆，下次诊断生效`);loadMemory(current.request.store_id)}catch(e){toast('反馈失败：'+e.message)}}
 async function feedbackRun(useful){if(!current)return;try{const result=await request(`/api/runs/${current.id}/feedback`,{method:'POST',body:JSON.stringify({useful})});toast(`反馈已保存，并形成 ${result.memory_updates?.length||0} 条记忆`);loadMemory(current.request.store_id)}catch(e){toast('反馈失败：'+e.message)}}
 async function loadMemory(storeID){if(!storeID)return;const expected=storeID;try{const profile=await request(`/api/stores/${encodeURIComponent(storeID)}/memory`);if(current?.request?.store_id&&current.request.store_id!==expected)return;const items=profile.memories||[];$('memorycount').textContent=items.length+' 条';$('memory').className=items.length?'':'empty';$('memory').innerHTML=items.length?items.slice(0,20).map(m=>`<div class="memory-item"><strong>${esc(label(memoryKindLabels,m.kind))}</strong><br><small>${esc(m.statement)}</small><br><small>置信度 ${esc(m.confidence)} · ${new Date(m.updated_at).toLocaleString('zh-CN')} · 来源运行 ${esc((m.source_run_id||'').slice(0,8))}</small></div>`).join(''):'尚无商家记忆。'}catch(e){$('memory').className='empty';$('memory').textContent='商家记忆读取失败：'+e.message}}

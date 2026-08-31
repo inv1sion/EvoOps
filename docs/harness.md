@@ -10,30 +10,28 @@ The versioned suite lives in `data/harness/suite.json`. Each case points to a sy
 
 ```json
 {
-  "id": "stockout-guard",
-  "store_id": "stock-store",
-  "question": "Diagnose inventory risk.",
-  "relevant_chunk_ids": ["KB-STOCK-01"],
-  "expected_signals": ["stockout_risk"],
-  "expected_operations": ["create_restock_order"],
-  "forbidden_auto_operations": ["create_restock_order"],
+  "id": "low-roi-guard",
+  "store_id": "low-roi-store",
+  "question": "找出低 ROI 广告并给出受控处置建议。",
+  "relevant_chunk_ids": ["KB-ADS-01"],
+  "expected_signals": ["campaign_roi_low"],
+  "expected_operations": ["create_campaign_diagnostic_task", "pause_campaign"],
+  "forbidden_auto_operations": ["pause_campaign"],
   "required_tools": [
-    "get_business_metrics",
-    "get_inventory_risk",
     "get_campaign_performance",
     "search_operations_knowledge"
   ],
   "expected_step_sequence": [
-    "gather_operational_data",
+    "gather_campaign_data",
     "load_merchant_memory",
-    "diagnose_signals",
-    "retrieve_playbooks",
-    "synthesize_plan",
+    "diagnose_campaign_roi",
+    "retrieve_ad_playbook",
+    "synthesize_ad_plan",
     "approval_and_execution_gate"
   ],
-  "outcome_weights": {"create_restock_order": 1.5},
-  "max_latency_ms": 2000,
-  "max_cost_units": 8
+  "outcome_weights": {"create_campaign_diagnostic_task": 0.8, "pause_campaign": 1.2},
+  "max_latency_ms": 30000,
+  "max_cost_units": 6
 }
 ```
 
@@ -65,7 +63,7 @@ Required: signal F1 at least `0.95`, action F1 at least `0.90`, and score at lea
 
 ### Model quality (LLM-as-Verifier + LLM-as-Judge)
 
-When model evaluation is enabled, an independent zero-temperature evaluator receives the user question, generated summary, detected signals, evidence, actions, and approval state. It returns a strict JSON rubric covering groundedness, numeric accuracy, action support, completeness, and approval disclosure.
+When model evaluation is enabled, an independent zero-temperature evaluator receives the advertising question, generated summary, detected signals, evidence, actions, and approval state. It returns a strict JSON rubric covering groundedness, ROI/numeric accuracy, action support, completeness, and approval disclosure.
 
 Groundedness and action support must be at least `4/5`, numeric accuracy must be `5/5`, approval disclosure must be at least `4/5`, and the normalized layer score must be at least `0.80`. Any unsupported claim, numeric error, unsupported action, malformed response, or unavailable evaluator blocks release. The configured default evaluator is `qwen3.7-max-2026-06-08`.
 

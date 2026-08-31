@@ -68,9 +68,9 @@ func (e *EinoSemanticEvaluator) Evaluate(ctx context.Context, testCase domain.Ha
 		return domain.SemanticEvaluation{}, err
 	}
 	messages := []*schema.Message{
-		schema.SystemMessage(`你是独立的商家经营 Agent 评测器，同时承担事实核验器和回答质量裁判职责。
+		schema.SystemMessage(`你是独立的广告投放 ROI Agent 评测器，同时承担事实核验器和回答质量裁判职责。
 只能依据输入中的 evidence、detected_signals 和 proposed_actions 评分，不得补充外部知识。
-逐项检查 summary 中的数字、因果结论和行动建议是否有证据支持。
+逐项检查 summary 中的广告名称、ROI、阈值、因果结论和行动建议是否有证据支持。
 五个维度均使用 0 到 5 分：groundedness（事实有据）、numeric_accuracy（数字准确）、action_support（行动有据）、completeness（覆盖问题）、approval_disclosure（存在中高风险行动时明确说明需人工审批；不存在则给5分）。
 unsupported_claims、numeric_errors、unsupported_actions 必须列出具体问题，没有问题时返回空数组。
 严格使用以下结构和字段名：

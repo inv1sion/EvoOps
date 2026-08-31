@@ -1,8 +1,8 @@
 # EvoOps
 
-EvoOps is a traceable, self-evolving commerce operations agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). Its center of gravity is not a chat UI: it is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible six-layer Evaluation Harness.
+EvoOps is a traceable, self-evolving advertising ROI agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). It reads active campaign performance, detects plans below a versioned ROI threshold, creates a low-risk attribution-review task, and guards campaign suspension behind human approval. Its center of gravity is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible six-layer Evaluation Harness.
 
-The included synthetic stores cover traffic, conversion, campaign ROI, refunds, and stockout risk. The framework boundary remains reusable for other decision-and-execution agents.
+The included synthetic stores cover four focused advertising cases: healthy delivery, an already-paused plan, an active low-ROI plan, and store-scoped preference memory. The framework boundary remains reusable for other decision-and-execution agents without mixing those domains into this demo.
 
 ## Why this project is different
 
@@ -11,7 +11,7 @@ The included synthetic stores cover traffic, conversion, campaign ROI, refunds, 
 - **Merchant memory and feedback learning:** explicit action feedback and normalized KPI outcomes become tenant-scoped, source-linked memory facts that personalize later plans without changing risk or bypassing approval.
 - **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
 - **Six-layer Harness:** retrieval, trajectory, tool safety, business outcome, LLM-verifier/judge quality, and cost/latency are scored separately. Safety, reproducibility, and semantic grounding are hard gates.
-- **Constrained self-evolution:** failure attribution produces a field-level mutation allowlist. The optimizer can change versioned policy parameters, never source code or arbitrary tool permissions.
+- **Constrained self-evolution:** failure attribution produces a field-level mutation allowlist. The optimizer can change the ROI threshold, retrieval parameters, and the actual grounded synthesis prompt revision, never source code or arbitrary tool permissions.
 - **Release credentials:** an evaluated policy records the Harness report, suite version, and active baseline it passed against. Stale candidates cannot enter canary or promotion.
 - **Human control:** medium/high-risk operations pause durably, canary assignment is deterministic, promotion is explicit, and rollback restores the previous policy.
 - **Offline-capable:** deterministic diagnosis and the original five structural layers run without an API key. With a credential, an independent Eino model synthesizes the answer and Qwen Max verifies facts and judges response quality as the sixth layer.
@@ -56,17 +56,13 @@ Candidate score must also remain within the total and per-layer regression toler
 
 ```mermaid
 flowchart LR
-    Q[Diagnosis request] --> W[Eino Workflow]
-    W --> M[Metrics tool]
-    W --> I[Inventory tool]
-    W --> C[Campaign tool]
+    Q[Advertising ROI question] --> W[Eino Workflow]
+    W --> C[Campaign performance tool]
     W --> L[Store-scoped merchant memory]
-    M --> D[Deterministic diagnosis]
-    I --> D
-    C --> D
+    C --> D[Deterministic low-ROI diagnosis]
     L --> D
-    D --> R[Hybrid hierarchical RAG]
-    R --> S[Local or Eino LLM synthesis]
+    D --> R[Advertising playbook RAG]
+    R --> S[Local or Eino LLM ad summary]
     S --> G{Risk gate}
     G -->|low risk| X[Execute tool]
     G -->|medium / high| H[Durable approval]
@@ -89,9 +85,9 @@ go run ./cmd/evoops evolve -canary 10
 go run ./cmd/evoops serve
 ```
 
-Open <http://localhost:8080>. Use `demo-store` for the compound failure case or one of `healthy-store`, `traffic-store`, `stock-store`, and `campaign-refund-store` for isolated cases.
+Open <http://localhost:8080>. Use `demo-store` for the main low-ROI and memory flow, or `healthy-store`, `paused-store`, and `low-roi-store` for isolated cases.
 
-The console opens in **Merchant Assistant** mode with a compact question → conclusion → causes → actions experience. Switch to **Agent Lab** to inspect evidence, Eino trajectories, tenant-scoped memory, and persisted self-evolution reports. This keeps engineering observability available without exposing it in the merchant's default workflow.
+The console opens in **Advertising Assistant** mode with a compact question → low-ROI plans → actions experience. Switch to **Agent Lab** to inspect evidence, Eino trajectories, tenant-scoped memory, and persisted self-evolution reports. This keeps engineering observability available without exposing it in the merchant's default workflow.
 
 The `evolve` command executes:
 
@@ -174,7 +170,7 @@ Discovered tools enter the same Eino registry as local tools. Production systems
 
 ```text
 cmd/evoops/             CLI and HTTP entry point
-data/demo/              synthetic commerce stores and playbooks
+data/demo/              synthetic campaign data and advertising playbook
 data/harness/           versioned labeled Harness cases
 docs/                   architecture, Harness, evolution, decisions
 internal/agent/         Eino workflow, replay mode, diagnosis, synthesis

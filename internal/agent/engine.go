@@ -51,14 +51,14 @@ func NewEngine(ctx context.Context, repo repository.Repository, policies *policy
 		engine.memory = memoryReaders[0]
 	}
 	wf := compose.NewWorkflow[*execution, *execution]()
-	wf.AddLambdaNode("gather_operational_data", compose.InvokableLambda(engine.gather)).AddInput(compose.START)
-	wf.AddLambdaNode("load_merchant_memory", compose.InvokableLambda(engine.loadMerchantMemory)).AddInput("gather_operational_data")
-	wf.AddLambdaNode("diagnose_signals", compose.InvokableLambda(engine.diagnose)).AddInput("load_merchant_memory")
-	wf.AddLambdaNode("retrieve_playbooks", compose.InvokableLambda(engine.retrieve)).AddInput("diagnose_signals")
-	wf.AddLambdaNode("synthesize_plan", compose.InvokableLambda(engine.synthesize)).AddInput("retrieve_playbooks")
-	wf.AddLambdaNode("approval_and_execution_gate", compose.InvokableLambda(engine.guard)).AddInput("synthesize_plan")
+	wf.AddLambdaNode("gather_campaign_data", compose.InvokableLambda(engine.gather)).AddInput(compose.START)
+	wf.AddLambdaNode("load_merchant_memory", compose.InvokableLambda(engine.loadMerchantMemory)).AddInput("gather_campaign_data")
+	wf.AddLambdaNode("diagnose_campaign_roi", compose.InvokableLambda(engine.diagnose)).AddInput("load_merchant_memory")
+	wf.AddLambdaNode("retrieve_ad_playbook", compose.InvokableLambda(engine.retrieve)).AddInput("diagnose_campaign_roi")
+	wf.AddLambdaNode("synthesize_ad_plan", compose.InvokableLambda(engine.synthesize)).AddInput("retrieve_ad_playbook")
+	wf.AddLambdaNode("approval_and_execution_gate", compose.InvokableLambda(engine.guard)).AddInput("synthesize_ad_plan")
 	wf.End().AddInput("approval_and_execution_gate")
-	runner, err := wf.Compile(ctx, compose.WithGraphName("EvoOpsDiagnosisWorkflow"))
+	runner, err := wf.Compile(ctx, compose.WithGraphName("EvoOpsAdvertisingROIWorkflow"))
 	if err != nil {
 		return nil, fmt.Errorf("compile Eino workflow: %w", err)
 	}
@@ -98,7 +98,7 @@ func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selec
 		request.Window = 7
 	}
 	if strings.TrimSpace(request.Question) == "" {
-		request.Question = "经营发生了什么变化、原因是什么、下一步应该怎么做？"
+		request.Question = "哪些广告计划 ROI 偏低，应该如何处理？"
 	}
 	run := &domain.Run{
 		ID: uuid.NewString(), Mode: mode, Request: request, Status: domain.RunRunning,
@@ -186,25 +186,13 @@ func (e *Engine) Approve(ctx context.Context, runID string, decision domain.Appr
 }
 
 func (e *Engine) gather(ctx context.Context, state *execution) (*execution, error) {
-	step := e.beginStep(state.Run, "gather_operational_data", "workflow", map[string]any{"store_id": state.Request.StoreID, "window_days": state.Request.Window})
+	step := e.beginStep(state.Run, "gather_campaign_data", "workflow", map[string]any{"store_id": state.Request.StoreID})
 	var firstErr error
 	defer func() {
-		e.finishStep(state.Run, step, map[string]any{"evidence_sources": len(step.ToolCalls)}, firstErr)
+		e.finishStep(state.Run, step, map[string]any{"campaign_count": len(state.Context.Campaigns)}, firstErr)
 	}()
 
 	args := map[string]any{"store_id": state.Request.StoreID}
-	metricsCall := e.callTool(ctx, tools.ToolMetrics, args, &state.Context.Metrics)
-	step.ToolCalls = append(step.ToolCalls, metricsCall)
-	if metricsCall.Error != "" {
-		firstErr = errors.New(metricsCall.Error)
-		return state, firstErr
-	}
-	inventoryCall := e.callTool(ctx, tools.ToolInventory, args, &state.Context.Inventory)
-	step.ToolCalls = append(step.ToolCalls, inventoryCall)
-	if inventoryCall.Error != "" {
-		firstErr = errors.New(inventoryCall.Error)
-		return state, firstErr
-	}
 	campaignCall := e.callTool(ctx, tools.ToolCampaigns, args, &state.Context.Campaigns)
 	step.ToolCalls = append(step.ToolCalls, campaignCall)
 	if campaignCall.Error != "" {
@@ -236,7 +224,7 @@ func (e *Engine) loadMerchantMemory(ctx context.Context, state *execution) (*exe
 }
 
 func (e *Engine) diagnose(_ context.Context, state *execution) (*execution, error) {
-	step := e.beginStep(state.Run, "diagnose_signals", "reasoning", map[string]any{"policy_version": state.Policy.Version})
+	step := e.beginStep(state.Run, "diagnose_campaign_roi", "reasoning", map[string]any{"policy_version": state.Policy.Version, "roi_threshold": state.Policy.CampaignROIThreshold})
 	state.Analysis = Analyze(state.Context, state.Policy)
 	ApplyMerchantMemory(&state.Analysis, state.Context.Memory)
 	e.finishStep(state.Run, step, map[string]any{"signals": state.Analysis.Signals, "proposed_actions": len(state.Analysis.Actions), "memory_facts_considered": len(state.Context.Memory.Memories)}, nil)
@@ -245,7 +233,7 @@ func (e *Engine) diagnose(_ context.Context, state *execution) (*execution, erro
 
 func (e *Engine) retrieve(ctx context.Context, state *execution) (*execution, error) {
 	query := signalQuery(state.Analysis.Signals)
-	step := e.beginStep(state.Run, "retrieve_playbooks", "rag", map[string]any{"query": query, "top_k": state.Policy.RetrievalTopK, "candidate_k": state.Policy.RetrievalCandidateK})
+	step := e.beginStep(state.Run, "retrieve_ad_playbook", "rag", map[string]any{"query": query, "top_k": state.Policy.RetrievalTopK, "candidate_k": state.Policy.RetrievalCandidateK})
 	args := map[string]any{
 		"store_id": state.Request.StoreID, "query": query, "top_k": state.Policy.RetrievalTopK,
 		"candidate_k": state.Policy.RetrievalCandidateK, "dense_weight": state.Policy.DenseWeight,
@@ -273,7 +261,7 @@ func (e *Engine) synthesize(ctx context.Context, state *execution) (*execution, 
 	if described, ok := e.synthesizer.(interface{ ModelName() string }); ok {
 		input["model"] = described.ModelName()
 	}
-	step := e.beginStep(state.Run, "synthesize_plan", "model", input)
+	step := e.beginStep(state.Run, "synthesize_ad_plan", "model", input)
 	summary, err := e.synthesizer.Synthesize(ctx, state.Request, state.Analysis)
 	if strings.TrimSpace(summary) != "" {
 		state.Analysis.Summary = summary

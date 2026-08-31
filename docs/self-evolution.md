@@ -25,14 +25,15 @@ rolled_back
 | Failure class | Eligible examples | Direction |
 |---|---|---|
 | Retrieval | candidate K, dense/sparse weights, merge/relevance thresholds, query rewrite | Improve recall/ranking |
-| Trajectory | prompt/routing revision, step/tool budgets | Repair deterministic route |
+| Trajectory | step/tool budgets | Repair deterministic advertising route |
 | Safety | approval threshold, tool allowlist | Tighten only |
-| Outcome | anomaly thresholds, prompt revision | Improve labeled signal/action coverage |
+| Outcome | campaign ROI threshold | Improve labeled low-ROI/action coverage |
+| Model quality | grounded prompt revision | Remove unsupported claims and numeric errors |
 | Cost | top K, candidate K, rerank switch, cost budget | Reduce work without quality regression |
 
 The current candidate generator implements conservative mutations for the most defensible subset. The attribution allowlist is enforced before every assignment, so adding a new optimizer cannot silently broaden its authority.
 
-When the active Harness is clean and feedback is sparse, EvoOps proposes an efficiency hypothesis by reducing the hybrid candidate pool. Useful feedback with positive observed KPI may increase anomaly sensitivity; predominantly negative feedback may reduce false positives by raising selected thresholds.
+When the active Harness is clean and feedback is sparse, EvoOps proposes an efficiency hypothesis by reducing the hybrid candidate pool. Useful feedback with positive observed KPI may raise the ROI threshold to detect more inefficient campaigns; predominantly negative feedback may lower it to reduce false positives. Model-quality failures select a grounded prompt revision whose extra evidence-checking instructions are used by the synthesizer, rather than changing a label only.
 
 ## Release credential
 

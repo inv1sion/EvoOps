@@ -422,15 +422,15 @@ func attribute(report domain.HarnessReport) []domain.FailureAttribution {
 			suggestion = "increase recall or adjust fusion/rewrite without changing execution permissions"
 		case "trajectory":
 			severity = "high"
-			mutations = []string{"prompt_revision", "routing_revision", "max_workflow_steps", "max_tool_calls"}
-			suggestion = "repair deterministic routing or tool selection and preserve replay reproducibility"
+			mutations = []string{"max_workflow_steps", "max_tool_calls"}
+			suggestion = "修复广告工作流或工具选择，并保持轨迹可复现"
 		case "safety":
 			severity = "critical"
 			mutations = []string{"required_approval_risk", "tool_allowlist"}
 			suggestion = "tighten approval and tool policy; never auto-relax a safety boundary"
 		case "outcome":
-			mutations = []string{"conversion_drop_threshold", "traffic_drop_threshold", "refund_rate_threshold", "campaign_roi_threshold", "stock_cover_days_threshold", "prompt_revision"}
-			suggestion = "adjust diagnosis sensitivity using labeled outcome failures"
+			mutations = []string{"campaign_roi_threshold"}
+			suggestion = "依据标注结果调整低 ROI 识别阈值"
 		case "model_quality":
 			severity = "high"
 			mutations = []string{"prompt_revision"}

@@ -25,7 +25,7 @@ func NewManager(ctx context.Context, repo repository.Repository) (*Manager, erro
 		changed := false
 		for version, item := range state.Policies {
 			normalized := normalizePolicy(item)
-			if item.RetrievalCandidateK == 0 {
+			if item.RetrievalCandidateK == 0 || item.CampaignROIThreshold == 0 {
 				state.Policies[version] = normalized
 				changed = true
 			}
@@ -52,29 +52,25 @@ func NewManager(ctx context.Context, repo repository.Repository) (*Manager, erro
 
 func DefaultPolicy() domain.Policy {
 	return domain.Policy{
-		Version:                 "v1.0.0",
-		ConversionDropThreshold: 10,
-		TrafficDropThreshold:    15,
-		RefundRateThreshold:     0.08,
-		CampaignROIThreshold:    1.50,
-		StockCoverDaysThreshold: 5,
-		RequiredApprovalRisk:    domain.RiskMedium,
-		RetrievalTopK:           3,
-		RetrievalCandidateK:     12,
-		DenseWeight:             0.55,
-		SparseWeight:            0.45,
-		RRFK:                    60,
-		MergeThreshold:          0.5,
-		RelevanceThreshold:      0.45,
-		RerankEnabled:           true,
-		QueryRewriteStrategy:    "step_back",
-		MaxWorkflowSteps:        7,
-		MaxToolCalls:            8,
-		MaxCostUnits:            8,
-		PromptRevision:          "diagnosis-v1",
-		Status:                  "active",
-		CreatedAt:               time.Now().UTC(),
-		Rationale:               "Conservative bootstrap policy validated by deterministic replay cases.",
+		Version:              "v1.0.0",
+		CampaignROIThreshold: 1.50,
+		RequiredApprovalRisk: domain.RiskMedium,
+		RetrievalTopK:        3,
+		RetrievalCandidateK:  12,
+		DenseWeight:          0.55,
+		SparseWeight:         0.45,
+		RRFK:                 60,
+		MergeThreshold:       0.5,
+		RelevanceThreshold:   0.45,
+		RerankEnabled:        true,
+		QueryRewriteStrategy: "step_back",
+		MaxWorkflowSteps:     7,
+		MaxToolCalls:         8,
+		MaxCostUnits:         8,
+		PromptRevision:       "ad-roi-v1",
+		Status:               "active",
+		CreatedAt:            time.Now().UTC(),
+		Rationale:            "Conservative bootstrap policy validated by deterministic replay cases.",
 	}
 }
 
@@ -177,26 +173,16 @@ func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []doma
 			record("query_rewrite_strategy", beforeRewrite, candidate.QueryRewriteStrategy, "Retrieval attribution enabled a higher-recall rewrite strategy")
 		}
 	}
-	if categories["trajectory"] && canMutate("prompt_revision") {
-		before := candidate.PromptRevision
-		candidate.PromptRevision = nextRevision(candidate.PromptRevision, "routing")
-		record("prompt_revision", before, candidate.PromptRevision, "Trajectory attribution created a new routing/prompt revision")
-	}
 	if categories["model_quality"] && canMutate("prompt_revision") {
 		before := candidate.PromptRevision
 		candidate.PromptRevision = nextRevision(candidate.PromptRevision, "grounding")
 		record("prompt_revision", before, candidate.PromptRevision, "LLM verifier/judge attribution created a grounded synthesis prompt revision")
 	}
 	if categories["outcome"] {
-		if canMutate("conversion_drop_threshold") {
-			beforeConversion := candidate.ConversionDropThreshold
-			candidate.ConversionDropThreshold = bounded(candidate.ConversionDropThreshold*.95, 5, 35)
-			record("conversion_drop_threshold", beforeConversion, candidate.ConversionDropThreshold, "Outcome misses increased conversion anomaly sensitivity")
-		}
-		if canMutate("traffic_drop_threshold") {
-			beforeTraffic := candidate.TrafficDropThreshold
-			candidate.TrafficDropThreshold = bounded(candidate.TrafficDropThreshold*.95, 5, 40)
-			record("traffic_drop_threshold", beforeTraffic, candidate.TrafficDropThreshold, "Outcome misses increased traffic anomaly sensitivity")
+		if canMutate("campaign_roi_threshold") {
+			before := candidate.CampaignROIThreshold
+			candidate.CampaignROIThreshold = bounded(candidate.CampaignROIThreshold*1.05, .5, 3)
+			record("campaign_roi_threshold", before, candidate.CampaignROIThreshold, "广告效果漏检提高了低 ROI 识别阈值")
 		}
 	}
 	if categories["cost"] && canMutate("retrieval_candidate_k") {
@@ -207,19 +193,13 @@ func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []doma
 	if len(attributions) == 0 {
 		switch {
 		case notUseful > useful:
-			beforeConversion := candidate.ConversionDropThreshold
-			candidate.ConversionDropThreshold = bounded(candidate.ConversionDropThreshold*1.10, 5, 35)
-			record("conversion_drop_threshold", beforeConversion, candidate.ConversionDropThreshold, "Negative feedback raised anomaly thresholds to reduce false positives")
-			beforeTraffic := candidate.TrafficDropThreshold
-			candidate.TrafficDropThreshold = bounded(candidate.TrafficDropThreshold*1.10, 5, 40)
-			record("traffic_drop_threshold", beforeTraffic, candidate.TrafficDropThreshold, "Negative feedback raised anomaly thresholds to reduce false positives")
+			before := candidate.CampaignROIThreshold
+			candidate.CampaignROIThreshold = bounded(candidate.CampaignROIThreshold*.95, .5, 3)
+			record("campaign_roi_threshold", before, candidate.CampaignROIThreshold, "负向反馈降低了低 ROI 识别阈值，以减少误报")
 		case useful > 0 && positiveOutcomes > 0:
-			beforeConversion := candidate.ConversionDropThreshold
-			candidate.ConversionDropThreshold = bounded(candidate.ConversionDropThreshold*.95, 5, 35)
-			record("conversion_drop_threshold", beforeConversion, candidate.ConversionDropThreshold, "Positive outcome feedback increased diagnostic sensitivity")
-			beforeTraffic := candidate.TrafficDropThreshold
-			candidate.TrafficDropThreshold = bounded(candidate.TrafficDropThreshold*.95, 5, 40)
-			record("traffic_drop_threshold", beforeTraffic, candidate.TrafficDropThreshold, "Positive outcome feedback increased diagnostic sensitivity")
+			before := candidate.CampaignROIThreshold
+			candidate.CampaignROIThreshold = bounded(candidate.CampaignROIThreshold*1.05, .5, 3)
+			record("campaign_roi_threshold", before, candidate.CampaignROIThreshold, "正向效果反馈提高了低 ROI 识别灵敏度")
 		default:
 			before := candidate.RetrievalCandidateK
 			candidate.RetrievalCandidateK = max(candidate.RetrievalTopK, candidate.RetrievalCandidateK-2)
@@ -239,7 +219,7 @@ func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []doma
 
 func nextRevision(current, suffix string) string {
 	if current == "" {
-		return "diagnosis-v2-" + suffix
+		return "ad-roi-v2-" + suffix
 	}
 	return current + "+" + suffix
 }
@@ -397,6 +377,9 @@ func max(a, b int) int {
 
 func normalizePolicy(item domain.Policy) domain.Policy {
 	defaults := DefaultPolicy()
+	if item.CampaignROIThreshold == 0 {
+		item.CampaignROIThreshold = defaults.CampaignROIThreshold
+	}
 	if item.RetrievalCandidateK == 0 {
 		item.RetrievalCandidateK = defaults.RetrievalCandidateK
 		item.DenseWeight = defaults.DenseWeight

@@ -26,32 +26,6 @@ type DiagnosisRequest struct {
 	Window   int    `json:"window_days,omitempty"`
 }
 
-type MetricPeriod struct {
-	Label          string  `json:"label"`
-	Revenue        float64 `json:"revenue"`
-	Orders         int     `json:"orders"`
-	Visitors       int     `json:"visitors"`
-	ConversionRate float64 `json:"conversion_rate"`
-	RefundRate     float64 `json:"refund_rate"`
-	AdSpend        float64 `json:"ad_spend"`
-	AdRevenue      float64 `json:"ad_revenue"`
-}
-
-type MetricsSnapshot struct {
-	Current  MetricPeriod `json:"current"`
-	Previous MetricPeriod `json:"previous"`
-}
-
-type InventoryItem struct {
-	SKU              string  `json:"sku"`
-	Name             string  `json:"name"`
-	Available        int     `json:"available"`
-	DailySales       float64 `json:"daily_sales"`
-	StockoutHours    int     `json:"stockout_hours"`
-	EstimatedDays    float64 `json:"estimated_cover_days"`
-	ContributionRate float64 `json:"revenue_contribution_rate"`
-}
-
 type Campaign struct {
 	ID       string  `json:"id"`
 	Name     string  `json:"name"`
@@ -74,8 +48,6 @@ type KnowledgeArticle struct {
 type StoreData struct {
 	StoreID   string             `json:"store_id"`
 	StoreName string             `json:"store_name"`
-	Metrics   MetricsSnapshot    `json:"metrics"`
-	Inventory []InventoryItem    `json:"inventory"`
 	Campaigns []Campaign         `json:"campaigns"`
 	Knowledge []KnowledgeArticle `json:"knowledge"`
 }
@@ -207,11 +179,7 @@ type MerchantMemoryProfile struct {
 type Policy struct {
 	Version                 string           `json:"version"`
 	ParentVersion           string           `json:"parent_version,omitempty"`
-	ConversionDropThreshold float64          `json:"conversion_drop_threshold"`
-	TrafficDropThreshold    float64          `json:"traffic_drop_threshold"`
-	RefundRateThreshold     float64          `json:"refund_rate_threshold"`
 	CampaignROIThreshold    float64          `json:"campaign_roi_threshold"`
-	StockCoverDaysThreshold float64          `json:"stock_cover_days_threshold"`
 	RequiredApprovalRisk    RiskLevel        `json:"required_approval_risk"`
 	RetrievalTopK           int              `json:"retrieval_top_k"`
 	RetrievalCandidateK     int              `json:"retrieval_candidate_k"`

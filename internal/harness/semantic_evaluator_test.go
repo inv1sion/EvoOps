@@ -41,15 +41,15 @@ func TestLiveQwenSemanticEvaluator(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := &domain.Run{Result: &domain.DiagnosisResult{
-		Summary: "退款率为 9.5%，超过 8% 的安全阈值；建议发起履约质量审计，该中风险操作需要人工审批。",
-		Signals: []domain.Signal{{Name: "refund_rate_spike", Observation: "退款率为 9.5%，超过 8% 的安全阈值。"}},
+		Summary: "低效搜索广告 ROI 为 1.10，低于 1.50；建议先归因复核，暂停广告需要人工审批。",
+		Signals: []domain.Signal{{Name: "campaign_roi_low", Observation: "低效搜索广告 ROI 为 1.10，低于 1.50。"}},
 		Evidence: []domain.Evidence{
-			{ID: "metrics", Excerpt: "最近7天退款率 9.5%，安全阈值 8%。"},
-			{ID: "kb", Excerpt: "退款率异常时，应按仓库和承运商拆分原因并发起履约质量审计。"},
+			{ID: "campaign", Excerpt: "低效搜索广告当前 ROI 1.10，策略阈值 1.50。"},
+			{ID: "kb", Excerpt: "低 ROI 广告应先归因复核；暂停广告必须人工审批。"},
 		},
-		Actions: []domain.Action{{Title: "发起履约质量审计", Risk: domain.RiskMedium, Status: "waiting_approval"}},
+		Actions: []domain.Action{{Title: "暂停低 ROI 广告计划", Risk: domain.RiskHigh, Status: "waiting_approval"}},
 	}}
-	result, err := evaluator.Evaluate(context.Background(), domain.HarnessCase{Question: "诊断退款率异常并给出受控行动。"}, run)
+	result, err := evaluator.Evaluate(context.Background(), domain.HarnessCase{Question: "诊断低 ROI 广告并给出受控行动。"}, run)
 	if err != nil {
 		t.Fatal(err)
 	}
