@@ -91,6 +91,8 @@ go run ./cmd/evoops serve
 
 Open <http://localhost:8080>. Use `demo-store` for the compound failure case or one of `healthy-store`, `traffic-store`, `stock-store`, and `campaign-refund-store` for isolated cases.
 
+The console opens in **Merchant Assistant** mode with a compact question → conclusion → causes → actions experience. Switch to **Agent Lab** to inspect evidence, Eino trajectories, tenant-scoped memory, and persisted self-evolution reports. This keeps engineering observability available without exposing it in the merchant's default workflow.
+
 The `evolve` command executes:
 
 ```text

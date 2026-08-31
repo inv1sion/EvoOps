@@ -20,10 +20,13 @@ func TestConsoleUsesSimplifiedChinese(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(page)
-	for _, want := range []string{`lang="zh-CN"`, "行动之前，证据先行。", "经营信号与行动", "证据链", "执行轨迹", "运行自进化评测"} {
+	for _, want := range []string{`lang="zh-CN"`, "商家经营助手", "今天想解决什么经营问题？", "本次经营结论", "主要原因", "建议行动", "Agent 实验室", "执行轨迹", "证据链", "长期记忆", "运行自进化评测"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("console is missing Chinese copy %q", want)
 		}
+	}
+	if !strings.Contains(body, `id="assistant-view" class="view active"`) || strings.Contains(body, `id="lab-view" class="view active"`) {
+		t.Fatal("merchant assistant must be the default view")
 	}
 	for _, unwanted := range []string{"Evidence before action.", "Run diagnosis", "Signals & actions", "Execution trajectory"} {
 		if strings.Contains(body, unwanted) {
