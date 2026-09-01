@@ -194,6 +194,7 @@ type Policy struct {
 	MaxToolCalls            int              `json:"max_tool_calls"`
 	MaxCostUnits            float64          `json:"max_cost_units"`
 	PromptRevision          string           `json:"prompt_revision"`
+	Prompt                  PromptArtifact   `json:"prompt"`
 	Status                  string           `json:"status"`
 	CreatedAt               time.Time        `json:"created_at"`
 	EvaluatedAt             *time.Time       `json:"evaluated_at,omitempty"`
@@ -202,6 +203,29 @@ type Policy struct {
 	EvaluatedSuiteVersion   string           `json:"evaluated_suite_version,omitempty"`
 	Rationale               string           `json:"rationale"`
 	Mutations               []PolicyMutation `json:"mutations,omitempty"`
+}
+
+// PromptArtifact is the complete, immutable prompt version used by a policy.
+// Storing the full text (rather than only a label) makes every replay
+// reproducible and every model-generated mutation auditable.
+type PromptArtifact struct {
+	Version              string           `json:"version"`
+	ParentVersion        string           `json:"parent_version,omitempty"`
+	Content              string           `json:"content"`
+	Patch                string           `json:"patch,omitempty"`
+	Generator            string           `json:"generator"`
+	GeneratorModel       string           `json:"generator_model,omitempty"`
+	GenerationDurationMS int64            `json:"generation_duration_ms,omitempty"`
+	Rationale            string           `json:"rationale"`
+	FailureEvidence      []string         `json:"failure_evidence,omitempty"`
+	Validation           PromptValidation `json:"validation"`
+	CreatedAt            time.Time        `json:"created_at"`
+}
+
+type PromptValidation struct {
+	Passed bool            `json:"passed"`
+	Checks map[string]bool `json:"checks"`
+	Errors []string        `json:"errors,omitempty"`
 }
 
 type PolicyMutation struct {
@@ -360,7 +384,35 @@ type EvolutionRun struct {
 	Candidate       Policy               `json:"candidate"`
 	CandidateReport HarnessReport        `json:"candidate_report"`
 	Attributions    []FailureAttribution `json:"attributions,omitempty"`
+	Comparison      EvolutionComparison  `json:"comparison"`
 	CanaryPercent   int                  `json:"canary_percent,omitempty"`
 	Status          string               `json:"status"`
 	CreatedAt       time.Time            `json:"created_at"`
+}
+
+// EvolutionComparison is the compact, resume-ready result of one controlled
+// evolution experiment. The full per-case reports remain available for audit.
+type EvolutionComparison struct {
+	CaseCount                   int     `json:"case_count"`
+	BaselineScore               float64 `json:"baseline_score"`
+	CandidateScore              float64 `json:"candidate_score"`
+	ScoreDelta                  float64 `json:"score_delta"`
+	BaselineCasePassRate        float64 `json:"baseline_case_pass_rate"`
+	CandidateCasePassRate       float64 `json:"candidate_case_pass_rate"`
+	BaselineModelQuality        float64 `json:"baseline_model_quality"`
+	CandidateModelQuality       float64 `json:"candidate_model_quality"`
+	ModelQualityDelta           float64 `json:"model_quality_delta"`
+	BaselineGroundedness        float64 `json:"baseline_groundedness"`
+	CandidateGroundedness       float64 `json:"candidate_groundedness"`
+	BaselineNumericAccuracy     float64 `json:"baseline_numeric_accuracy"`
+	CandidateNumericAccuracy    float64 `json:"candidate_numeric_accuracy"`
+	BaselineAverageLatencyMS    float64 `json:"baseline_average_latency_ms"`
+	CandidateAverageLatencyMS   float64 `json:"candidate_average_latency_ms"`
+	BaselineAverageCostUnits    float64 `json:"baseline_average_cost_units"`
+	CandidateAverageCostUnits   float64 `json:"candidate_average_cost_units"`
+	BaselineSafetyViolations    float64 `json:"baseline_safety_violations"`
+	CandidateSafetyViolations   float64 `json:"candidate_safety_violations"`
+	PromptChanged               bool    `json:"prompt_changed"`
+	CandidatePromptValidationOK bool    `json:"candidate_prompt_validation_ok"`
+	GateDecision                string  `json:"gate_decision"`
 }

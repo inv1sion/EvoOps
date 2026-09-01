@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/inv1sion/evoops/internal/domain"
+	promptpolicy "github.com/inv1sion/evoops/internal/prompt"
 	"github.com/inv1sion/evoops/internal/repository"
 )
 
@@ -25,7 +26,7 @@ func NewManager(ctx context.Context, repo repository.Repository) (*Manager, erro
 		changed := false
 		for version, item := range state.Policies {
 			normalized := normalizePolicy(item)
-			if item.RetrievalCandidateK == 0 || item.CampaignROIThreshold == 0 {
+			if item.RetrievalCandidateK == 0 || item.CampaignROIThreshold == 0 || item.Prompt.Content == "" || !item.Prompt.Validation.Checks["content_matches_composed_patch"] || item.PromptRevision != normalized.PromptRevision {
 				state.Policies[version] = normalized
 				changed = true
 			}
@@ -51,6 +52,8 @@ func NewManager(ctx context.Context, repo repository.Repository) (*Manager, erro
 }
 
 func DefaultPolicy() domain.Policy {
+	createdAt := time.Now().UTC()
+	prompt := promptpolicy.DefaultArtifact(createdAt)
 	return domain.Policy{
 		Version:              "v1.0.0",
 		CampaignROIThreshold: 1.50,
@@ -67,9 +70,10 @@ func DefaultPolicy() domain.Policy {
 		MaxWorkflowSteps:     7,
 		MaxToolCalls:         8,
 		MaxCostUnits:         8,
-		PromptRevision:       "ad-roi-v1",
+		PromptRevision:       prompt.Version,
+		Prompt:               prompt,
 		Status:               "active",
-		CreatedAt:            time.Now().UTC(),
+		CreatedAt:            createdAt,
 		Rationale:            "Conservative bootstrap policy validated by deterministic replay cases.",
 	}
 }
@@ -103,6 +107,13 @@ func (m *Manager) GenerateCandidate(ctx context.Context) (domain.Policy, error) 
 // it. When the baseline is clean, feedback drives a small efficiency-only
 // candidate so the evolution loop still has a measurable hypothesis to test.
 func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []domain.FailureAttribution) (domain.Policy, error) {
+	return m.GenerateCandidateWithPrompt(ctx, attributions, nil)
+}
+
+// GenerateCandidateWithPrompt applies an optional, already safety-validated
+// full Prompt artifact. The Manager still enforces the failure-attribution
+// allowlist and owns the atomic policy version write.
+func (m *Manager) GenerateCandidateWithPrompt(ctx context.Context, attributions []domain.FailureAttribution, optimized *domain.PromptArtifact) (domain.Policy, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	state, err := m.repo.LoadPolicyState(ctx)
@@ -173,10 +184,26 @@ func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []doma
 			record("query_rewrite_strategy", beforeRewrite, candidate.QueryRewriteStrategy, "Retrieval attribution enabled a higher-recall rewrite strategy")
 		}
 	}
-	if categories["model_quality"] && canMutate("prompt_revision") {
+	canApplyOptimizedPrompt := optimized != nil && ((categories["model_quality"] && canMutate("prompt_revision")) || len(attributions) == 0)
+	if canApplyOptimizedPrompt {
+		validation := promptpolicy.Validate(*optimized)
+		if !validation.Passed {
+			return domain.Policy{}, fmt.Errorf("optimized prompt did not pass safety validation: %s", strings.Join(validation.Errors, ", "))
+		}
 		before := candidate.PromptRevision
-		candidate.PromptRevision = nextRevision(candidate.PromptRevision, "grounding")
-		record("prompt_revision", before, candidate.PromptRevision, "LLM verifier/judge attribution created a grounded synthesis prompt revision")
+		candidate.Prompt = *optimized
+		candidate.Prompt.Validation = validation
+		candidate.PromptRevision = optimized.Version
+		record("prompt_revision", before, candidate.PromptRevision, "Prompt optimizer generated a full, validated synthesis prompt from Harness evidence")
+	} else if categories["model_quality"] && canMutate("prompt_revision") {
+		before := candidate.PromptRevision
+		fallback, promptErr := promptpolicy.RuleBasedOptimizer{}.Optimize(ctx, promptpolicy.OptimizationRequest{Active: base})
+		if promptErr != nil {
+			return domain.Policy{}, promptErr
+		}
+		candidate.Prompt = fallback
+		candidate.PromptRevision = fallback.Version
+		record("prompt_revision", before, candidate.PromptRevision, "LLM verifier/judge attribution created a safe deterministic fallback prompt")
 	}
 	if categories["outcome"] {
 		if canMutate("campaign_roi_threshold") {
@@ -190,7 +217,7 @@ func (m *Manager) GenerateCandidateFrom(ctx context.Context, attributions []doma
 		candidate.RetrievalCandidateK = max(candidate.RetrievalTopK, candidate.RetrievalCandidateK-3)
 		record("retrieval_candidate_k", before, candidate.RetrievalCandidateK, "Cost attribution reduced the hybrid candidate pool")
 	}
-	if len(attributions) == 0 {
+	if len(attributions) == 0 && optimized == nil {
 		switch {
 		case notUseful > useful:
 			before := candidate.CampaignROIThreshold
@@ -380,6 +407,8 @@ func normalizePolicy(item domain.Policy) domain.Policy {
 	if item.CampaignROIThreshold == 0 {
 		item.CampaignROIThreshold = defaults.CampaignROIThreshold
 	}
+	item.Prompt = promptpolicy.Normalize(item)
+	item.PromptRevision = item.Prompt.Version
 	if item.RetrievalCandidateK == 0 {
 		item.RetrievalCandidateK = defaults.RetrievalCandidateK
 		item.DenseWeight = defaults.DenseWeight

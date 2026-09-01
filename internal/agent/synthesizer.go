@@ -11,6 +11,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"github.com/inv1sion/evoops/internal/domain"
+	promptpolicy "github.com/inv1sion/evoops/internal/prompt"
 )
 
 type Synthesizer interface {
@@ -57,7 +58,7 @@ func (s *EinoSynthesizer) Synthesize(ctx context.Context, request domain.Diagnos
 		return "", err
 	}
 	messages := []*schema.Message{
-		schema.SystemMessage(synthesisSystemPrompt(analysis.PromptRevision)),
+		schema.SystemMessage(synthesisSystemPrompt(analysis.PromptRevision, analysis.Prompt)),
 		schema.UserMessage(string(payload)),
 	}
 	response, err := s.model.Generate(ctx, messages)
@@ -71,10 +72,14 @@ func (s *EinoSynthesizer) Synthesize(ctx context.Context, request domain.Diagnos
 	return response.Content, nil
 }
 
-func synthesisSystemPrompt(revision string) string {
-	prompt := "你是广告投放 ROI 诊断助手。必须全程使用简体中文，只能依据提供的广告计划证据、候选行动和明确标注的商家记忆，不得补充未提供的原因、数字或行动。准确复述 ROI、阈值和计划名称。商家记忆只用于行动排序和解释，不得覆盖风险等级或审批要求。若存在暂停广告行动，必须明确说明需要人工审批。输出一段不超过180个汉字的广告诊断。"
-	if strings.Contains(revision, "grounding") {
-		prompt += " 输出前逐句核验：每个数字必须在 evidence 中出现，每个行动必须在 actions 中出现；无法核验的内容直接删除。"
+func synthesisSystemPrompt(revision string, artifacts ...domain.PromptArtifact) string {
+	var artifact domain.PromptArtifact
+	if len(artifacts) > 0 {
+		artifact = artifacts[0]
 	}
-	return prompt
+	if strings.TrimSpace(artifact.Content) != "" {
+		return artifact.Content
+	}
+	legacy := domain.Policy{PromptRevision: revision, Prompt: artifact}
+	return promptpolicy.Normalize(legacy).Content
 }

@@ -14,35 +14,38 @@ const (
 )
 
 type Config struct {
-	Address         string
-	DataDir         string
-	DemoDataPath    string
-	HarnessDataPath string
-	OpenAIAPIKey    string
-	OpenAIBaseURL   string
-	OpenAIModel     string
-	JudgeModel      string
-	LLMEvalEnabled  bool
-	MCPSSEURLs      []string
-	MCPAllowlist    []string
+	Address              string
+	DataDir              string
+	DemoDataPath         string
+	HarnessDataPath      string
+	OpenAIAPIKey         string
+	OpenAIBaseURL        string
+	OpenAIModel          string
+	JudgeModel           string
+	PromptOptimizerModel string
+	LLMEvalEnabled       bool
+	MCPSSEURLs           []string
+	MCPAllowlist         []string
 }
 
 func Load() Config {
 	// Local developer credentials live in the gitignored .env file. Existing
 	// process environment variables always take precedence.
 	_ = loadDotEnv(".env")
+	openAIModel := env("OPENAI_MODEL", DefaultOpenAIModel)
 	return Config{
-		Address:         env("EVOOPS_ADDR", ":8080"),
-		DataDir:         env("EVOOPS_DATA_DIR", "data/runtime"),
-		DemoDataPath:    env("EVOOPS_DEMO_DATA", "data/demo/store.json"),
-		HarnessDataPath: env("EVOOPS_HARNESS_DATA", "data/harness/suite.json"),
-		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
-		OpenAIBaseURL:   env("OPENAI_BASE_URL", DefaultOpenAIBaseURL),
-		OpenAIModel:     env("OPENAI_MODEL", DefaultOpenAIModel),
-		JudgeModel:      env("EVOOPS_JUDGE_MODEL", DefaultJudgeModel),
-		LLMEvalEnabled:  boolEnv("EVOOPS_LLM_EVAL_ENABLED", true),
-		MCPSSEURLs:      csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
-		MCPAllowlist:    csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
+		Address:              env("EVOOPS_ADDR", ":8080"),
+		DataDir:              env("EVOOPS_DATA_DIR", "data/runtime"),
+		DemoDataPath:         env("EVOOPS_DEMO_DATA", "data/demo/store.json"),
+		HarnessDataPath:      env("EVOOPS_HARNESS_DATA", "data/harness/suite.json"),
+		OpenAIAPIKey:         os.Getenv("OPENAI_API_KEY"),
+		OpenAIBaseURL:        env("OPENAI_BASE_URL", DefaultOpenAIBaseURL),
+		OpenAIModel:          openAIModel,
+		JudgeModel:           env("EVOOPS_JUDGE_MODEL", DefaultJudgeModel),
+		PromptOptimizerModel: env("EVOOPS_PROMPT_OPTIMIZER_MODEL", openAIModel),
+		LLMEvalEnabled:       boolEnv("EVOOPS_LLM_EVAL_ENABLED", true),
+		MCPSSEURLs:           csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
+		MCPAllowlist:         csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
 	}
 }
 

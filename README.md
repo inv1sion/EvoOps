@@ -11,7 +11,7 @@ The included synthetic stores cover four focused advertising cases: healthy deli
 - **Merchant memory and feedback learning:** explicit action feedback and normalized KPI outcomes become tenant-scoped, source-linked memory facts that personalize later plans without changing risk or bypassing approval.
 - **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
 - **Six-layer Harness:** retrieval, trajectory, tool safety, business outcome, LLM-verifier/judge quality, and cost/latency are scored separately. Safety, reproducibility, and semantic grounding are hard gates.
-- **Constrained self-evolution:** failure attribution produces a field-level mutation allowlist. The optimizer can change the ROI threshold, retrieval parameters, and the actual grounded synthesis prompt revision, never source code or arbitrary tool permissions.
+- **Constrained Prompt self-evolution:** failure attribution and Judge feedback are passed to an Eino Prompt Optimizer. It generates a bounded Prompt Patch; EvoOps persists the full prompt text, parent version, model, rationale, evidence, and static validation result before exact-path candidate replay. It never rewrites the immutable approval, evidence, memory, or tool-permission boundary.
 - **Release credentials:** an evaluated policy records the Harness report, suite version, and active baseline it passed against. Stale candidates cannot enter canary or promotion.
 - **Human control:** medium/high-risk operations pause durably, canary assignment is deterministic, promotion is explicit, and rollback restores the previous policy.
 - **Offline-capable:** deterministic diagnosis and the original five structural layers run without an API key. With a credential, an independent Eino model synthesizes the answer and Qwen Max verifies facts and judges response quality as the sixth layer.
@@ -25,7 +25,8 @@ flowchart LR
     A[Live trajectory + feedback + KPI] --> B[Active-policy Harness]
     B --> C[Failure attribution]
     C --> D[Allowed mutation set]
-    D --> E[Versioned candidate]
+    D --> P[LLM Prompt Patch + static safety validation]
+    P --> E[Versioned full Prompt candidate]
     E --> F[Candidate exact-path replay ×2]
     F --> G{Six-layer gate}
     G -->|blocked| H[Persist evidence and failure class]
@@ -51,6 +52,8 @@ Self-evolution here means governed optimization, not uncontrolled source-code re
 | Cost | Tool/model/retrieval cost units and end-to-end node latency | Policy and case budgets |
 
 Candidate score must also remain within the total and per-layer regression tolerances of a freshly replayed active baseline. See [docs/harness.md](docs/harness.md) for schemas, formulas, and extension instructions.
+
+Every evolution run also persists a compact baseline/candidate comparison: case pass rate, model-quality score, groundedness, numeric accuracy, average workflow latency, cost units, safety violations, Prompt lineage, and gate decision. A real four-case Qwen experiment is documented in [docs/evaluation-results.md](docs/evaluation-results.md); it proves a passing no-regression Prompt mutation, not a fabricated quality uplift from an already-perfect synthetic baseline.
 
 ## Runtime architecture
 
@@ -94,7 +97,9 @@ The `evolve` command executes:
 ```text
 active baseline replay
   → failure attribution
-  → allowlisted policy mutation
+  → LLM-generated Prompt Patch
+  → immutable-boundary validation
+  → allowlisted policy mutation with full Prompt artifact
   → candidate replay twice per case
   → baseline/layer regression gates
   → optional canary
@@ -109,7 +114,7 @@ export OPENAI_API_KEY=your-key
 go run ./cmd/evoops serve
 ```
 
-On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. Process variables take precedence over `.env`; `OPENAI_BASE_URL`, `OPENAI_MODEL`, `EVOOPS_JUDGE_MODEL`, and `EVOOPS_LLM_EVAL_ENABLED` remain available as deployment-time overrides. Never commit a live key; `.env` is ignored by Git and excluded from Docker build context.
+On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. Process variables take precedence over `.env`; `OPENAI_BASE_URL`, `OPENAI_MODEL`, `EVOOPS_JUDGE_MODEL`, `EVOOPS_PROMPT_OPTIMIZER_MODEL`, and `EVOOPS_LLM_EVAL_ENABLED` remain available as deployment-time overrides. The Prompt Optimizer defaults to `OPENAI_MODEL`. Never commit a live key; `.env` is ignored by Git and excluded from Docker build context.
 
 ## Useful commands
 
@@ -178,6 +183,7 @@ internal/memory/        feedback-to-memory learning and tenant-scoped profiles
 internal/retrieval/     dense + BM25 + RRF + auto-merge + reranking
 internal/harness/       deterministic scoring, LLM verifier/judge, fingerprints, attribution
 internal/evolution/     baseline/candidate evaluation and release loop
+internal/prompt/        LLM Prompt Patch generation, immutable composition, static validation
 internal/policy/        mutation constraints, credentials, canary, rollback
 internal/repository/    atomic JSON trajectory/report/policy persistence
 internal/httpapi/       API, role gate, embedded operations console

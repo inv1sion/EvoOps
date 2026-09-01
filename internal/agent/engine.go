@@ -257,7 +257,10 @@ func (e *Engine) retrieve(ctx context.Context, state *execution) (*execution, er
 }
 
 func (e *Engine) synthesize(ctx context.Context, state *execution) (*execution, error) {
-	input := map[string]any{"provider": e.synthesizer.Name(), "prompt_revision": state.Policy.PromptRevision}
+	input := map[string]any{
+		"provider": e.synthesizer.Name(), "prompt_revision": state.Policy.PromptRevision,
+		"prompt_generator": state.Policy.Prompt.Generator, "prompt_validation_passed": state.Policy.Prompt.Validation.Passed,
+	}
 	if described, ok := e.synthesizer.(interface{ ModelName() string }); ok {
 		input["model"] = described.ModelName()
 	}

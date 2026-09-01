@@ -11,6 +11,7 @@ import (
 	"github.com/inv1sion/evoops/internal/harness"
 	"github.com/inv1sion/evoops/internal/memory"
 	"github.com/inv1sion/evoops/internal/policy"
+	promptpolicy "github.com/inv1sion/evoops/internal/prompt"
 	"github.com/inv1sion/evoops/internal/repository"
 	"github.com/inv1sion/evoops/internal/tools"
 )
@@ -66,6 +67,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, err
 	}
 	var evaluators []harness.SemanticEvaluator
+	var promptOptimizer promptpolicy.Optimizer = promptpolicy.RuleBasedOptimizer{}
 	if cfg.OpenAIAPIKey != "" && cfg.LLMEvalEnabled {
 		semanticEvaluator, err := harness.NewEinoSemanticEvaluator(ctx, cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.JudgeModel)
 		if err != nil {
@@ -74,12 +76,24 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 		evaluators = append(evaluators, semanticEvaluator)
 	}
+	if cfg.OpenAIAPIKey != "" {
+		modelName := cfg.PromptOptimizerModel
+		if modelName == "" {
+			modelName = cfg.OpenAIModel
+		}
+		generatedOptimizer, err := promptpolicy.NewEinoOptimizer(ctx, cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, modelName)
+		if err != nil {
+			registry.Close()
+			return nil, fmt.Errorf("initialize prompt optimizer: %w", err)
+		}
+		promptOptimizer = generatedOptimizer
+	}
 	harnessSuite, err := harness.Load(cfg.HarnessDataPath, engine, evaluators...)
 	if err != nil {
 		registry.Close()
 		return nil, err
 	}
-	evolutionService := evolution.NewService(repo, policies, harnessSuite)
+	evolutionService := evolution.NewService(repo, policies, harnessSuite, promptOptimizer)
 	return &App{Config: cfg, Repo: repo, Policies: policies, Tools: registry, Agent: engine, Memory: memoryService, Harness: harnessSuite, Evolution: evolutionService}, nil
 }
 

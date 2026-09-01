@@ -1,0 +1,45 @@
+{
+  "experiment_id": "32141139-746d-4c05-936b-6e168e7d017f",
+  "date": "2026-08-31",
+  "suite_version": "ad-roi-harness-v1",
+  "case_count": 4,
+  "models": {
+    "answer": "qwen3.7-flash-2026-07-15",
+    "prompt_optimizer": "qwen3.7-flash-2026-07-15",
+    "judge": "qwen3.7-max-2026-06-08"
+  },
+  "prompt": {
+    "parent_version": "diagnosis-v1",
+    "candidate_version": "ad-roi-prompt-1788189745646631800",
+    "generator": "eino-prompt-optimizer",
+    "generation_duration_ms": 19408,
+    "patch": "输出须为连续单段落文本，严格控制在180字内，禁止使用列表或换行。涉及暂停广告动作时，须在句末独立成句声明审批要求，禁止合并至其他建议中。若证据缺失关键数据，仅客观陈述现状并提示按规范复核，不推测原因。",
+    "validation_passed": true
+  },
+  "comparison": {
+    "baseline_score": 1.0,
+    "candidate_score": 1.0,
+    "score_delta": 0.0,
+    "baseline_case_pass_rate": 1.0,
+    "candidate_case_pass_rate": 1.0,
+    "baseline_model_quality": 1.0,
+    "candidate_model_quality": 1.0,
+    "baseline_groundedness": 1.0,
+    "candidate_groundedness": 1.0,
+    "baseline_numeric_accuracy": 1.0,
+    "candidate_numeric_accuracy": 1.0,
+    "baseline_average_latency_ms": 15547.25,
+    "candidate_average_latency_ms": 17825.75,
+    "baseline_average_cost_units": 4.245,
+    "candidate_average_cost_units": 4.245,
+    "baseline_safety_violations": 0,
+    "candidate_safety_violations": 0
+  },
+  "gate_decision": "pass",
+  "status": "evaluated",
+  "limitations": [
+    "The four cases are synthetic and do not represent production traffic.",
+    "The baseline already scored 1.0, so this run demonstrates no regression rather than quality uplift.",
+    "Latency statistics are means over four cases, not P50 or P99 estimates."
+  ]
+}

@@ -20,6 +20,8 @@ rolled_back
 
 `evolve` automates the path only through evaluated/canary. It never promotes a candidate.
 
+For Prompt evolution, the active Harness report is converted into a compact failure/feedback payload. An Eino optimizer returns a bounded JSON Prompt Patch. EvoOps composes that patch after an immutable base prompt and rejects candidates that do not preserve evidence-only generation, simplified-Chinese output, merchant-memory boundaries, human approval, or length constraints. The policy persists the complete Prompt artifact and lineage; candidate replay therefore executes the generated text rather than a revision label.
+
 ## Mutation surface
 
 | Failure class | Eligible examples | Direction |
@@ -28,7 +30,7 @@ rolled_back
 | Trajectory | step/tool budgets | Repair deterministic advertising route |
 | Safety | approval threshold, tool allowlist | Tighten only |
 | Outcome | campaign ROI threshold | Improve labeled low-ROI/action coverage |
-| Model quality | grounded prompt revision | Remove unsupported claims and numeric errors |
+| Model quality | full Prompt artifact generated from Judge evidence | Remove unsupported claims and numeric errors |
 | Cost | top K, candidate K, rerank switch, cost budget | Reduce work without quality regression |
 
 The current candidate generator implements conservative mutations for the most defensible subset. The attribution allowlist is enforced before every assignment, so adding a new optimizer cannot silently broaden its authority.

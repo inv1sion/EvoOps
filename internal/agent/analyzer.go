@@ -22,10 +22,11 @@ type Analysis struct {
 	Evidence       []domain.Evidence
 	Actions        []domain.Action
 	PromptRevision string
+	Prompt         domain.PromptArtifact
 }
 
 func Analyze(context AnalysisContext, policy domain.Policy) Analysis {
-	analysis := Analysis{PromptRevision: policy.PromptRevision}
+	analysis := Analysis{PromptRevision: policy.PromptRevision, Prompt: policy.Prompt}
 	activeCampaigns := 0
 	for _, campaign := range context.Campaigns {
 		if campaign.Status != "active" {
