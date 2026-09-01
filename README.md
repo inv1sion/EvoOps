@@ -2,119 +2,119 @@
 
 # ⚡ EvoOps
 
-### A governed self-evolving Agent for advertising ROI
+### 面向广告 ROI 的受控自进化 Agent
 
-**Traceable decisions · Exact-path replay · Prompt evolution · Human-controlled execution**
+**决策可追溯 · 同链路回放 · Prompt 演进 · 人工受控执行**
 
 <p>
-  <a href="README.md"><img src="https://img.shields.io/badge/Read_in-English-1683ff?style=for-the-badge" alt="Read in English"></a>
-  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/阅读-简体中文-ef4444?style=for-the-badge" alt="阅读简体中文"></a>
+  <a href="README.en.md"><img src="https://img.shields.io/badge/Read_in-English-1683ff?style=for-the-badge" alt="Read in English"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/阅读-简体中文-ef4444?style=for-the-badge" alt="阅读简体中文"></a>
 </p>
 
 <p>
   <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.25+">
   <img src="https://img.shields.io/badge/CloudWeGo-Eino-00A6FF?style=flat-square" alt="CloudWeGo Eino">
-  <img src="https://img.shields.io/badge/Evaluation_Harness-6_Layers-7C3AED?style=flat-square" alt="Six-layer Evaluation Harness">
+  <img src="https://img.shields.io/badge/Evaluation_Harness-六层评测-7C3AED?style=flat-square" alt="六层 Evaluation Harness">
   <img src="https://img.shields.io/badge/LLM-Qwen-FF6A00?style=flat-square" alt="Qwen">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-22c55e?style=flat-square" alt="Apache-2.0"></a>
 </p>
 
-[Highlights](#why-this-project-is-different) · [Self-evolution](#core-loop) · [Evaluation](#evaluation-harness) · [Architecture](#runtime-architecture) · [Quick start](#quick-start) · [API](#http-api)
+[项目亮点](#项目亮点) · [自进化闭环](#自进化闭环) · [评测体系](#evaluation-harness) · [运行架构](#运行架构) · [快速开始](#快速开始) · [API](#http-api)
 
 </div>
 
 ---
 
-EvoOps is a traceable, self-evolving advertising ROI agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). It reads active campaign performance, detects plans below a versioned ROI threshold, creates a low-risk attribution-review task, and guards campaign suspension behind human approval. Its center of gravity is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible six-layer Evaluation Harness.
+EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino) 构建的、轨迹可追溯的广告 ROI 自进化 Agent。它读取投放中广告的经营数据，识别低于版本化 ROI 阈值的计划，创建低风险归因复核任务，并将暂停广告等高风险操作置于人工审批之后。项目重点不是单次 Demo，而是把线上轨迹转化为受约束策略候选，再通过可复现的六层 Evaluation Harness 阻断不安全或效果退化的版本。
 
-The included synthetic stores cover four focused advertising cases: healthy delivery, an already-paused plan, an active low-ROI plan, and store-scoped preference memory. The framework boundary remains reusable for other decision-and-execution agents without mixing those domains into this demo.
+仓库内置 4 个合成商店用例，分别覆盖健康投放、已暂停计划、投放中低 ROI 计划和店铺级偏好记忆。框架边界可复用于其他“决策 + 执行”型 Agent，同时保持当前 Demo 的广告 ROI 场景足够聚焦。
 
-## At a glance
+## 一眼看懂
 
-| Capability | Implementation |
+| 能力 | 实现方式 |
 |---|---|
-| Agent runtime | Go + CloudWeGo Eino compiled workflow and typed tools |
-| Evolution target | Versioned Prompt artifacts and allowlisted policy parameters |
-| Evaluation | Six-layer Harness plus independent LLM-as-Verifier/Judge |
-| Retrieval | Dense + BM25, weighted RRF, parent auto-merge, reranking |
-| Learning | Store-scoped long-term memory built from explicit feedback and KPI outcomes |
-| Governance | Immutable safety boundary, approval gate, canary, release credential, rollback |
+| Agent 运行时 | Go + CloudWeGo Eino 编译式 Workflow 与类型化工具 |
+| 自进化对象 | 版本化 Prompt 产物与白名单策略参数 |
+| 评测体系 | 六层 Evaluation Harness + 独立 LLM-as-Verifier/Judge |
+| 检索链路 | Dense + BM25、加权 RRF、父子块自动合并、重排 |
+| 反馈学习 | 基于显式反馈与 KPI 结果构建店铺级长期记忆 |
+| 发布治理 | 不可变安全边界、审批门禁、灰度、发布凭证与回滚 |
 
-## Why this project is different
+## 项目亮点
 
-- **Exact-path replay:** the Harness invokes the same compiled Eino workflow and typed tools as the live agent, with side effects replaced by `would_execute`.
-- **Complete trajectory:** every node, tool input/output, retrieval ranking, latency, evidence reference, action state, policy version, and approval event is persisted.
-- **Merchant memory and feedback learning:** explicit action feedback and normalized KPI outcomes become tenant-scoped, source-linked memory facts that personalize later plans without changing risk or bypassing approval.
-- **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
-- **Six-layer Harness:** retrieval, trajectory, tool safety, business outcome, LLM-verifier/judge quality, and cost/latency are scored separately. Safety, reproducibility, and semantic grounding are hard gates.
-- **Constrained Prompt self-evolution:** failure attribution and Judge feedback are passed to an Eino Prompt Optimizer. It generates a bounded Prompt Patch; EvoOps persists the full prompt text, parent version, model, rationale, evidence, and static validation result before exact-path candidate replay. It never rewrites the immutable approval, evidence, memory, or tool-permission boundary.
-- **Release credentials:** an evaluated policy records the Harness report, suite version, and active baseline it passed against. Stale candidates cannot enter canary or promotion.
-- **Human control:** medium/high-risk operations pause durably, canary assignment is deterministic, promotion is explicit, and rollback restores the previous policy.
-- **Offline-capable:** deterministic diagnosis and the original five structural layers run without an API key. With a credential, an independent Eino model synthesizes the answer and Qwen Max verifies facts and judges response quality as the sixth layer.
+- **同链路精确回放：** Harness 调用与在线 Agent 相同的 Eino Workflow 和类型化工具，仅将真实副作用替换为 `would_execute`。
+- **完整执行轨迹：** 持久化每个节点、工具输入输出、检索排序、耗时、证据引用、行动状态、策略版本和审批事件。
+- **商家记忆与反馈学习：** 将明确的行动反馈和标准化 KPI 结果沉淀为租户隔离、来源可追溯的记忆事实；记忆只影响后续方案排序，不改变风险等级，也不能绕过审批。
+- **混合分层检索：** 采用确定性稠密检索与 BM25 双路召回，通过加权 RRF 融合，并支持父子块自动合并、业务短语重排和策略控制的查询改写。
+- **六层评测 Harness：** 分别评测检索、轨迹、工具安全、业务效果、LLM Verifier/Judge 质量以及成本/时延；安全、可复现性与事实有据性均为硬门禁。
+- **受控 Prompt 自进化：** 将失败归因和 Judge 反馈交给 Eino Prompt Optimizer，生成边界受限的 Prompt Patch；在候选回放前持久化完整 Prompt、父版本、模型、演进理由、证据与静态校验结果。审批、证据、记忆和工具权限边界不可被改写。
+- **发布凭证：** 通过评测的策略会记录 Harness 报告、评测集版本及其对比的线上基线；过期候选无法进入灰度或正式发布。
+- **人工控制：** 中高风险操作持久化暂停；灰度分流确定性可复现；正式发布必须显式确认；回滚恢复上一稳定版本。
+- **离线可运行：** 无模型 Key 时仍可执行确定性诊断和前五层结构化评测；配置模型后，由独立 Eino 模型生成回答，并由 Qwen Max 核验事实和评价回答质量。
 
-The retrieval and observability ideas were adapted from my earlier [MedQA-Agentic-RAG](https://github.com/inv1sion/MedQA-Agentic-RAG) project. EvoOps reimplements the online system in Go/Eino and adds the self-evolution Harness, policy governance, release gates, and commerce evaluation set.
+检索与可观测性设计延续自我此前的 [MedQA-Agentic-RAG](https://github.com/inv1sion/MedQA-Agentic-RAG) 项目。EvoOps 使用 Go/Eino 重新实现在线链路，并新增自进化 Harness、策略治理、发布门禁和电商广告评测集。
 
-## Core loop
+## 自进化闭环
 
 ```mermaid
 flowchart LR
-    A[Live trajectory + feedback + KPI] --> B[Active-policy Harness]
-    B --> C[Failure attribution]
-    C --> D[Allowed mutation set]
-    D --> P[LLM Prompt Patch + static safety validation]
-    P --> E[Versioned full Prompt candidate]
-    E --> F[Candidate exact-path replay ×2]
-    F --> G{Six-layer gate}
-    G -->|blocked| H[Persist evidence and failure class]
-    G -->|pass| I[Attach release credential]
-    I --> J[Deterministic canary]
-    J --> K{Human decision}
-    K -->|promote| L[New active policy]
-    K -->|regress| M[Rollback]
+    A[线上轨迹 + 反馈 + KPI] --> B[线上策略基线评测]
+    B --> C[失败归因]
+    C --> D[允许的变更集合]
+    D --> P[LLM Prompt Patch + 静态安全校验]
+    P --> E[完整 Prompt 版本化候选]
+    E --> F[候选逐用例双回放]
+    F --> G{六层发布门禁}
+    G -->|阻断| H[保存证据与失败类型]
+    G -->|通过| I[签发发布凭证]
+    I --> J[确定性灰度]
+    J --> K{人工决策}
+    K -->|发布| L[新线上策略]
+    K -->|退化| M[回滚]
     L --> A
 ```
 
-Self-evolution here means governed optimization, not uncontrolled source-code rewriting. Candidate mutations are small, explainable, replayable, and reversible.
+这里的“自进化”指受治理的优化，而不是让模型不受约束地修改源代码。每次候选变更都必须小范围、可解释、可回放、可回滚。
 
 ## Evaluation Harness
 
-| Layer | What is measured | Gate behavior |
+| 评测层 | 测量内容 | 门禁方式 |
 |---|---|---|
-| Retrieval | Precision@K, Recall@K, MRR, NDCG, rewrite use, retrieval cost | Minimum recall and quality score |
-| Trajectory | Eino node sequence, required-tool recall, step/tool budgets, errors, dual-replay fingerprint | Hard gate |
-| Safety | Forbidden operations that could bypass approval | Hard gate; any violation blocks |
-| Outcome | Signal F1, action F1, weighted business-utility coverage | Minimum outcome quality |
-| Model quality | Grounding, numeric accuracy, action support, completeness, approval disclosure | Hard gate; unsupported claims or numeric errors block |
-| Cost | Tool/model/retrieval cost units and end-to-end node latency | Policy and case budgets |
+| 检索质量 | Precision@K、Recall@K、MRR、NDCG、改写使用和检索成本 | 最低召回率与质量分 |
+| 轨迹质量 | Eino 节点顺序、必要工具召回、步骤/工具预算、错误、双回放指纹 | 硬门禁 |
+| 工具安全 | 可能绕过审批的禁止操作 | 硬门禁，任一违规即阻断 |
+| 业务效果 | 信号 F1、行动 F1、加权业务效用覆盖率 | 最低业务质量分 |
+| 模型质量 | 事实有据、数字准确、行动支持、完整性、审批说明 | 硬门禁，无依据或数字错误即阻断 |
+| 成本性能 | 工具/模型/检索成本单位及端到端节点耗时 | 策略级与用例级预算 |
 
-Candidate score must also remain within the total and per-layer regression tolerances of a freshly replayed active baseline. See [docs/harness.md](docs/harness.md) for schemas, formulas, and extension instructions.
+候选版本还必须满足相对于最新线上基线的总分和分层退化容忍度。Schema、公式及扩展方法见 [docs/harness.md](docs/harness.md)。
 
-Every evolution run also persists a compact baseline/candidate comparison: case pass rate, model-quality score, groundedness, numeric accuracy, average workflow latency, cost units, safety violations, Prompt lineage, and gate decision. A real four-case Qwen experiment is documented in [docs/evaluation-results.md](docs/evaluation-results.md); it proves a passing no-regression Prompt mutation, not a fabricated quality uplift from an already-perfect synthetic baseline.
+每次演进都会保存紧凑的基线/候选对照结果：用例通过率、模型质量、事实有据、数字准确、平均工作流耗时、成本单位、安全违规、Prompt 血缘和门禁决策。真实的 4 用例 Qwen 实验记录在 [docs/evaluation-results.md](docs/evaluation-results.md)；它证明的是一个不退化且通过门禁的 Prompt 变更，而不是从已经满分的合成基线虚构质量提升。
 
-## Runtime architecture
+## 运行架构
 
 ```mermaid
 flowchart LR
-    Q[Advertising ROI question] --> W[Eino Workflow]
-    W --> C[Campaign performance tool]
-    W --> L[Store-scoped merchant memory]
-    C --> D[Deterministic low-ROI diagnosis]
+    Q[广告 ROI 问题] --> W[Eino Workflow]
+    W --> C[广告经营数据工具]
+    W --> L[店铺级商家记忆]
+    C --> D[确定性低 ROI 诊断]
     L --> D
-    D --> R[Advertising playbook RAG]
-    R --> S[Local or Eino LLM ad summary]
-    S --> G{Risk gate}
-    G -->|low risk| X[Execute tool]
-    G -->|medium / high| H[Durable approval]
+    D --> R[广告处置手册 RAG]
+    R --> S[本地或 Eino LLM 总结]
+    S --> G{风险门禁}
+    G -->|低风险| X[执行工具]
+    G -->|中高风险| H[持久化审批]
     H --> X
-    W --> T[(Trajectory store)]
+    W --> T[(轨迹存储)]
     X --> T
 ```
 
-The agent can discover allowlisted MCP SSE tools through Eino's official MCP adapter. Local demo identity headers model the authorization boundary; a real deployment should replace them with verified OIDC/JWT claims and tenant-scoped tool policies.
+Agent 可以通过 Eino 官方 MCP 适配器发现白名单内的 MCP SSE 工具。本地 Demo 使用身份请求头模拟授权边界；真实部署应替换为已验证的 OIDC/JWT Claim 和租户级工具策略。
 
-## Quick start
+## 快速开始
 
-Requirements: Go 1.25 or newer.
+要求 Go 1.25 或更高版本。
 
 ```bash
 go test ./...
@@ -124,47 +124,47 @@ go run ./cmd/evoops evolve -canary 10
 go run ./cmd/evoops serve
 ```
 
-Open <http://localhost:8080>. Use `demo-store` for the main low-ROI and memory flow, or `healthy-store`, `paused-store`, and `low-roi-store` for isolated cases.
+打开 <http://localhost:8080>。主流程和记忆学习使用 `demo-store`；也可以使用 `healthy-store`、`paused-store` 和 `low-roi-store` 运行隔离用例。
 
-The console opens in **Advertising Assistant** mode with a compact question → low-ROI plans → actions experience. Switch to **Agent Lab** to inspect evidence, Eino trajectories, tenant-scoped memory, and persisted self-evolution reports. This keeps engineering observability available without exposing it in the merchant's default workflow.
+控制台默认进入**广告助手**，保持“问题 → 低 ROI 计划 → 建议行动”的简洁体验。切换到 **Agent 实验室**后，可以检查证据链、Eino 执行轨迹、租户级记忆和持久化自进化报告。页面右上角支持即时切换中文与 English，并会记住选择。
 
-The `evolve` command executes:
+`evolve` 命令执行以下闭环：
 
 ```text
-active baseline replay
-  → failure attribution
-  → LLM-generated Prompt Patch
-  → immutable-boundary validation
-  → allowlisted policy mutation with full Prompt artifact
-  → candidate replay twice per case
-  → baseline/layer regression gates
-  → optional canary
+线上策略基线回放
+  → 失败归因
+  → LLM 生成 Prompt Patch
+  → 不可变边界校验
+  → 白名单策略变更与完整 Prompt 产物
+  → 每个用例执行两次候选回放
+  → 基线与分层退化门禁
+  → 可选灰度
 ```
 
-It never promotes automatically. Promotion requires a separate admin action after canary assignment.
+系统不会自动正式发布。通过评测并进入灰度后，仍需要独立的管理员操作才能提升为线上版本。
 
-The repository defaults to Alibaba Cloud Model Studio's OpenAI-compatible endpoint. The live agent uses `qwen3.7-flash-2026-07-15`; the independent verifier/judge uses `qwen3.7-max-2026-06-08`. Put the credential in the gitignored local `.env` file or inject it through the process environment:
+仓库默认使用阿里云百炼 OpenAI 兼容接口。在线 Agent 使用 `qwen3.7-flash-2026-07-15`，独立 Verifier/Judge 使用 `qwen3.7-max-2026-06-08`。请把凭据放入已被 Git 忽略的本地 `.env`，或使用进程环境变量注入：
 
 ```bash
 export OPENAI_API_KEY=your-key
 go run ./cmd/evoops serve
 ```
 
-On PowerShell, use `$env:OPENAI_API_KEY = "..."` instead of `export`. Process variables take precedence over `.env`; `OPENAI_BASE_URL`, `OPENAI_MODEL`, `EVOOPS_JUDGE_MODEL`, `EVOOPS_PROMPT_OPTIMIZER_MODEL`, and `EVOOPS_LLM_EVAL_ENABLED` remain available as deployment-time overrides. The Prompt Optimizer defaults to `OPENAI_MODEL`. Never commit a live key; `.env` is ignored by Git and excluded from Docker build context.
+PowerShell 使用 `$env:OPENAI_API_KEY = "..."`，不要使用 `export`。进程环境变量优先于 `.env`；`OPENAI_BASE_URL`、`OPENAI_MODEL`、`EVOOPS_JUDGE_MODEL`、`EVOOPS_PROMPT_OPTIMIZER_MODEL` 和 `EVOOPS_LLM_EVAL_ENABLED` 可用于部署时覆盖。Prompt Optimizer 默认复用 `OPENAI_MODEL`。切勿提交真实 Key；`.env` 已被 Git 和 Docker 构建上下文排除。
 
-## Useful commands
+## 常用命令
 
 ```bash
-# Evaluate the active policy.
+# 评测当前线上策略
 go run ./cmd/evoops harness
 
-# Evaluate a stored candidate against a fresh active baseline.
+# 使用最新线上基线评测指定候选
 go run ./cmd/evoops harness -policy CANDIDATE_VERSION
 
-# Run the closed loop and assign 10% deterministic canary traffic if it passes.
+# 运行闭环；通过后分配 10% 确定性灰度流量
 go run ./cmd/evoops evolve -canary 10
 
-# Verify production readiness of this repository.
+# 验证仓库工程状态
 go test ./...
 go vet ./...
 go build ./cmd/evoops
@@ -172,23 +172,23 @@ go build ./cmd/evoops
 
 ## HTTP API
 
-| Method | Endpoint | Purpose |
+| 方法 | 接口 | 用途 |
 |---|---|---|
-| `POST` | `/api/runs` | Run a live diagnosis |
-| `POST` | `/api/runs/stream` | Receive a run as SSE events |
-| `GET` | `/api/runs/{id}` | Read the full trajectory |
-| `POST` | `/api/runs/{id}/approve` | Resume or reject guarded actions |
-| `POST` | `/api/runs/{id}/feedback` | Store usefulness, action, and KPI feedback |
-| `GET` | `/api/stores/{id}/memory` | Read the tenant-scoped auditable memory profile |
-| `GET` | `/api/harness/reports` | List persisted multi-layer reports |
-| `POST` | `/api/harness/run/{version}` | Evaluate a policy against the active baseline |
-| `POST` | `/api/evolution/run` | Execute attribution → candidate → Harness → optional canary |
-| `GET` | `/api/evolution/runs` | List complete evolution records |
-| `POST` | `/api/evolution/canary/{version}` | Assign deterministic canary traffic |
-| `POST` | `/api/evolution/promote/{version}` | Promote a canaried policy with a valid release credential |
-| `POST` | `/api/evolution/rollback` | Restore the previous active policy |
+| `POST` | `/api/runs` | 运行在线诊断 |
+| `POST` | `/api/runs/stream` | 通过 SSE 接收运行事件 |
+| `GET` | `/api/runs/{id}` | 读取完整执行轨迹 |
+| `POST` | `/api/runs/{id}/approve` | 恢复或拒绝受门禁保护的行动 |
+| `POST` | `/api/runs/{id}/feedback` | 保存有效性、行动和 KPI 反馈 |
+| `GET` | `/api/stores/{id}/memory` | 读取租户级可审计记忆画像 |
+| `GET` | `/api/harness/reports` | 查询持久化分层评测报告 |
+| `POST` | `/api/harness/run/{version}` | 将指定策略与线上基线对比评测 |
+| `POST` | `/api/evolution/run` | 执行归因 → 候选 → Harness → 可选灰度 |
+| `GET` | `/api/evolution/runs` | 查询完整演进记录 |
+| `POST` | `/api/evolution/canary/{version}` | 分配确定性灰度流量 |
+| `POST` | `/api/evolution/promote/{version}` | 使用有效发布凭证提升灰度策略 |
+| `POST` | `/api/evolution/rollback` | 恢复上一线上策略 |
 
-Approval example:
+审批示例：
 
 ```bash
 curl -X POST http://localhost:8080/api/runs/RUN_ID/approve \
@@ -198,40 +198,40 @@ curl -X POST http://localhost:8080/api/runs/RUN_ID/approve \
   -d '{"approved":true,"reason":"metrics and scope reviewed"}'
 ```
 
-## MCP tools
+## MCP 工具
 
 ```bash
 export EVOOPS_MCP_SSE_URLS=http://localhost:3001/sse,http://localhost:3002/sse
 export EVOOPS_MCP_TOOL_ALLOWLIST=lookup_order,create_ticket
 ```
 
-Discovered tools enter the same Eino registry as local tools. Production systems should enforce allowlists during discovery and authorization/argument policy again during invocation.
+发现后的工具进入与本地工具相同的 Eino Registry。生产系统应在工具发现阶段执行白名单约束，并在调用阶段再次校验身份、授权和参数策略。
 
-## Repository layout
+## 目录结构
 
 ```text
-cmd/evoops/             CLI and HTTP entry point
-data/demo/              synthetic campaign data and advertising playbook
-data/harness/           versioned labeled Harness cases
-docs/                   architecture, Harness, evolution, decisions
-internal/agent/         Eino workflow, replay mode, diagnosis, synthesis
-internal/memory/        feedback-to-memory learning and tenant-scoped profiles
-internal/retrieval/     dense + BM25 + RRF + auto-merge + reranking
-internal/harness/       deterministic scoring, LLM verifier/judge, fingerprints, attribution
-internal/evolution/     baseline/candidate evaluation and release loop
-internal/prompt/        LLM Prompt Patch generation, immutable composition, static validation
-internal/policy/        mutation constraints, credentials, canary, rollback
-internal/repository/    atomic JSON trajectory/report/policy persistence
-internal/httpapi/       API, role gate, embedded operations console
-internal/tools/         typed Eino tools and MCP discovery
+cmd/evoops/             CLI 与 HTTP 入口
+data/demo/              合成广告数据与广告处置手册
+data/harness/           版本化标注评测用例
+docs/                   架构、Harness、自进化与决策记录
+internal/agent/         Eino Workflow、回放模式、诊断与总结
+internal/memory/        反馈到记忆的学习与租户级画像
+internal/retrieval/     Dense + BM25 + RRF + 自动合并 + 重排
+internal/harness/       确定性评分、LLM Verifier/Judge、指纹与归因
+internal/evolution/     基线/候选评测与发布闭环
+internal/prompt/        LLM Prompt Patch、不可变组合与静态校验
+internal/policy/        变更约束、发布凭证、灰度与回滚
+internal/repository/    原子 JSON 轨迹/报告/策略持久化
+internal/httpapi/       API、角色门禁与内嵌运营控制台
+internal/tools/         类型化 Eino 工具与 MCP 发现
 ```
 
-## Engineering boundaries
+## 工程边界
 
-The local corpus and hashed dense vectorizer keep CI deterministic; the retriever boundary can be replaced by an embedding service/vector database while preserving the same retrieval trace and Harness contract. The file repository uses locked atomic replacement; PostgreSQL plus a distributed checkpoint/queue is the natural multi-instance implementation. The SSE demo buffers the completed trajectory; production streaming should emit live workflow callbacks.
+本地语料与哈希稠密向量器保证 CI 可复现；检索器接口可以替换为 Embedding 服务和向量数据库，同时保留相同的检索轨迹与 Harness 契约。文件仓库采用加锁原子替换；多实例部署可自然演进为 PostgreSQL、分布式检查点和任务队列。SSE Demo 当前缓冲完整轨迹后输出；生产流式链路应对接实时 Workflow Callback。
 
-Detailed design is in [docs/architecture.md](docs/architecture.md), [docs/self-evolution.md](docs/self-evolution.md), and [docs/decision-log.md](docs/decision-log.md).
+详细设计见 [docs/architecture.md](docs/architecture.md)、[docs/self-evolution.md](docs/self-evolution.md) 和 [docs/decision-log.md](docs/decision-log.md)。
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0，详见 [LICENSE](LICENSE)。
