@@ -1,8 +1,44 @@
-# EvoOps
+<div align="center">
+
+# ⚡ EvoOps
+
+### A governed self-evolving Agent for advertising ROI
+
+**Traceable decisions · Exact-path replay · Prompt evolution · Human-controlled execution**
+
+<p>
+  <a href="README.md"><img src="https://img.shields.io/badge/Read_in-English-1683ff?style=for-the-badge" alt="Read in English"></a>
+  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/阅读-简体中文-ef4444?style=for-the-badge" alt="阅读简体中文"></a>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.25+">
+  <img src="https://img.shields.io/badge/CloudWeGo-Eino-00A6FF?style=flat-square" alt="CloudWeGo Eino">
+  <img src="https://img.shields.io/badge/Evaluation_Harness-6_Layers-7C3AED?style=flat-square" alt="Six-layer Evaluation Harness">
+  <img src="https://img.shields.io/badge/LLM-Qwen-FF6A00?style=flat-square" alt="Qwen">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-22c55e?style=flat-square" alt="Apache-2.0"></a>
+</p>
+
+[Highlights](#why-this-project-is-different) · [Self-evolution](#core-loop) · [Evaluation](#evaluation-harness) · [Architecture](#runtime-architecture) · [Quick start](#quick-start) · [API](#http-api)
+
+</div>
+
+---
 
 EvoOps is a traceable, self-evolving advertising ROI agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). It reads active campaign performance, detects plans below a versioned ROI threshold, creates a low-risk attribution-review task, and guards campaign suspension behind human approval. Its center of gravity is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible six-layer Evaluation Harness.
 
 The included synthetic stores cover four focused advertising cases: healthy delivery, an already-paused plan, an active low-ROI plan, and store-scoped preference memory. The framework boundary remains reusable for other decision-and-execution agents without mixing those domains into this demo.
+
+## At a glance
+
+| Capability | Implementation |
+|---|---|
+| Agent runtime | Go + CloudWeGo Eino compiled workflow and typed tools |
+| Evolution target | Versioned Prompt artifacts and allowlisted policy parameters |
+| Evaluation | Six-layer Harness plus independent LLM-as-Verifier/Judge |
+| Retrieval | Dense + BM25, weighted RRF, parent auto-merge, reranking |
+| Learning | Store-scoped long-term memory built from explicit feedback and KPI outcomes |
+| Governance | Immutable safety boundary, approval gate, canary, release credential, rollback |
 
 ## Why this project is different
 
