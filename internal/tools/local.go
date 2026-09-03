@@ -29,7 +29,7 @@ type knowledgeInput struct {
 	RRFK                 int     `json:"rrf_k" jsonschema:"description=Reciprocal rank fusion constant"`
 	MergeThreshold       float64 `json:"merge_threshold" jsonschema:"description=Child coverage required for parent auto-merging"`
 	RelevanceThreshold   float64 `json:"relevance_threshold" jsonschema:"description=Minimum rerank score before query rewriting"`
-	RerankEnabled        bool    `json:"rerank_enabled" jsonschema:"description=Enable deterministic reranking"`
+	RerankEnabled        bool    `json:"rerank_enabled" jsonschema:"description=Enable the configured local or Qwen reranker"`
 	QueryRewriteStrategy string  `json:"query_rewrite_strategy" jsonschema:"description=none step_back or hyde"`
 }
 
@@ -42,7 +42,7 @@ func RegisterLocal(ctx context.Context, registry *Registry, repo dataset.Reposit
 	if err != nil {
 		return err
 	}
-	knowledge, err := utils.InferTool(ToolKnowledge, "检索广告投放诊断与低 ROI 处置手册。",
+	knowledge, err := utils.InferTool(ToolKnowledge, "检索广告投放诊断与低 ROI 处置手册；返回引用证据与完整检索轨迹。",
 		func(ctx context.Context, input knowledgeInput) (domain.RetrievalResult, error) {
 			return repo.SearchKnowledge(ctx, input.StoreID, input.Query, domain.RetrievalConfig{
 				TopK: input.TopK, CandidateK: input.CandidateK, DenseWeight: input.DenseWeight,

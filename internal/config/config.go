@@ -8,25 +8,44 @@ import (
 )
 
 const (
-	DefaultOpenAIBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-	DefaultOpenAIModel   = "qwen3.7-flash-2026-07-15"
-	DefaultJudgeModel    = "qwen3.7-max-2026-06-08"
+	DefaultOpenAIBaseURL  = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	DefaultOpenAIModel    = "qwen3.7-flash-2026-07-15"
+	DefaultJudgeModel     = "qwen3.7-max-2026-06-08"
+	DefaultEmbeddingModel = "text-embedding-v3"
+	DefaultRerankModel    = "qwen3-rerank"
 )
 
 type Config struct {
-	Address              string
-	DataDir              string
-	DemoDataPath         string
-	HarnessDataPath      string
-	OpenAIAPIKey         string
-	OpenAIBaseURL        string
-	OpenAIModel          string
-	JudgeModel           string
-	PromptOptimizerModel string
-	LLMEvalEnabled       bool
-	ToolCallingEnabled   bool
-	MCPSSEURLs           []string
-	MCPAllowlist         []string
+	Address                string
+	DataDir                string
+	DemoDataPath           string
+	HarnessDataPath        string
+	OpenAIAPIKey           string
+	OpenAIBaseURL          string
+	OpenAIModel            string
+	JudgeModel             string
+	PromptOptimizerModel   string
+	LLMEvalEnabled         bool
+	ToolCallingEnabled     bool
+	MCPSSEURLs             []string
+	MCPAllowlist           []string
+	RAGBackend             string
+	RAGAutoSeed            bool
+	RAGPostgresURL         string
+	RAGRedisAddress        string
+	RAGRedisPassword       string
+	RAGRedisDB             int
+	RAGRedisTTLSeconds     int
+	RAGMilvusAddress       string
+	RAGMilvusToken         string
+	RAGMilvusDatabase      string
+	RAGMilvusCollection    string
+	RAGEmbeddingBaseURL    string
+	RAGEmbeddingModel      string
+	RAGEmbeddingDimensions int
+	RAGRerankURL           string
+	RAGRerankModel         string
+	RAGMaxContextChars     int
 }
 
 func Load() Config {
@@ -34,20 +53,38 @@ func Load() Config {
 	// process environment variables always take precedence.
 	_ = loadDotEnv(".env")
 	openAIModel := env("OPENAI_MODEL", DefaultOpenAIModel)
+	openAIBaseURL := env("OPENAI_BASE_URL", DefaultOpenAIBaseURL)
 	return Config{
-		Address:              env("EVOOPS_ADDR", ":8080"),
-		DataDir:              env("EVOOPS_DATA_DIR", "data/runtime"),
-		DemoDataPath:         env("EVOOPS_DEMO_DATA", "data/demo/store.json"),
-		HarnessDataPath:      env("EVOOPS_HARNESS_DATA", "data/harness/suite.json"),
-		OpenAIAPIKey:         os.Getenv("OPENAI_API_KEY"),
-		OpenAIBaseURL:        env("OPENAI_BASE_URL", DefaultOpenAIBaseURL),
-		OpenAIModel:          openAIModel,
-		JudgeModel:           env("EVOOPS_JUDGE_MODEL", DefaultJudgeModel),
-		PromptOptimizerModel: env("EVOOPS_PROMPT_OPTIMIZER_MODEL", openAIModel),
-		LLMEvalEnabled:       boolEnv("EVOOPS_LLM_EVAL_ENABLED", true),
-		ToolCallingEnabled:   boolEnv("EVOOPS_TOOL_CALLING_ENABLED", true),
-		MCPSSEURLs:           csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
-		MCPAllowlist:         csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
+		Address:                env("EVOOPS_ADDR", ":8080"),
+		DataDir:                env("EVOOPS_DATA_DIR", "data/runtime"),
+		DemoDataPath:           env("EVOOPS_DEMO_DATA", "data/demo/store.json"),
+		HarnessDataPath:        env("EVOOPS_HARNESS_DATA", "data/harness/suite.json"),
+		OpenAIAPIKey:           os.Getenv("OPENAI_API_KEY"),
+		OpenAIBaseURL:          openAIBaseURL,
+		OpenAIModel:            openAIModel,
+		JudgeModel:             env("EVOOPS_JUDGE_MODEL", DefaultJudgeModel),
+		PromptOptimizerModel:   env("EVOOPS_PROMPT_OPTIMIZER_MODEL", openAIModel),
+		LLMEvalEnabled:         boolEnv("EVOOPS_LLM_EVAL_ENABLED", true),
+		ToolCallingEnabled:     boolEnv("EVOOPS_TOOL_CALLING_ENABLED", true),
+		MCPSSEURLs:             csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
+		MCPAllowlist:           csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
+		RAGBackend:             strings.ToLower(env("EVOOPS_RAG_BACKEND", "local")),
+		RAGAutoSeed:            boolEnv("EVOOPS_RAG_AUTO_SEED", true),
+		RAGPostgresURL:         env("EVOOPS_RAG_POSTGRES_URL", "postgres://evoops:evoops@localhost:5432/evoops?sslmode=disable"),
+		RAGRedisAddress:        env("EVOOPS_RAG_REDIS_ADDR", "localhost:6379"),
+		RAGRedisPassword:       os.Getenv("EVOOPS_RAG_REDIS_PASSWORD"),
+		RAGRedisDB:             IntEnv("EVOOPS_RAG_REDIS_DB", 0),
+		RAGRedisTTLSeconds:     IntEnv("EVOOPS_RAG_REDIS_TTL_SECONDS", 900),
+		RAGMilvusAddress:       env("EVOOPS_RAG_MILVUS_ADDR", "localhost:19530"),
+		RAGMilvusToken:         os.Getenv("EVOOPS_RAG_MILVUS_TOKEN"),
+		RAGMilvusDatabase:      env("EVOOPS_RAG_MILVUS_DATABASE", "default"),
+		RAGMilvusCollection:    env("EVOOPS_RAG_MILVUS_COLLECTION", "evoops_knowledge_l3"),
+		RAGEmbeddingBaseURL:    env("EVOOPS_RAG_EMBEDDING_BASE_URL", openAIBaseURL),
+		RAGEmbeddingModel:      env("EVOOPS_RAG_EMBEDDING_MODEL", DefaultEmbeddingModel),
+		RAGEmbeddingDimensions: IntEnv("EVOOPS_RAG_EMBEDDING_DIMENSIONS", 1024),
+		RAGRerankURL:           strings.TrimSpace(os.Getenv("EVOOPS_RAG_RERANK_URL")),
+		RAGRerankModel:         env("EVOOPS_RAG_RERANK_MODEL", DefaultRerankModel),
+		RAGMaxContextChars:     IntEnv("EVOOPS_RAG_MAX_CONTEXT_CHARS", 6000),
 	}
 }
 

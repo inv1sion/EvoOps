@@ -31,7 +31,7 @@ The Eino Workflow now contains a bounded native tool-calling loop: merchant memo
 1. `gather_campaign_data` invokes one typed Eino tool for campaign status, spend, revenue, current ROI, and previous ROI.
 2. `load_merchant_memory` reads the store-scoped memory profile. Each fact retains its feedback, run, confidence, and timestamp lineage.
 3. `diagnose_campaign_roi` ignores inactive campaigns, compares active plans with the selected policy threshold, and creates evidence-linked signals. Each low-ROI plan receives a low-risk attribution-review task and a high-risk pause proposal. Matching memory can reorder and annotate those actions, but cannot alter risk, tool arguments, or approval policy.
-4. `retrieve_ad_playbook` queries the advertising corpus. Dense and BM25 rankings are fused with weighted RRF; related leaves can merge to their parent; deterministic reranking favors exact business phrases.
+4. `retrieve_ad_playbook` queries the advertising corpus. The deterministic backend supports offline replay; external mode uses text-embedding-v3, Milvus BM25, weighted RRF, Qwen reranking, and PostgreSQL/Redis-backed L3→L2→L1 merging.
 5. `synthesize_ad_plan` uses a local synthesizer or an Eino OpenAI-compatible `ChatModel`. The policy's prompt revision selects real grounding instructions. Provider failure falls back to deterministic text and stays visible in the trajectory.
 6. `approval_and_execution_gate` automatically executes only the diagnostic task. Campaign suspension remains in a durable approval request.
 7. Approval resumes the exact persisted action IDs. Newly generated work cannot be inserted into an existing approval.
@@ -65,7 +65,7 @@ query ─→ optional rewrite ─┬→ deterministic dense ranking ─┐
                                              top-K + retrieval trace
 ```
 
-The local dense channel uses feature hashing plus a small commerce synonym map for deterministic CI. `dataset.Repository` and the retrieval result/trace schema are the replacement boundaries for production embeddings, Milvus, Elasticsearch, or another vector backend.
+The local dense channel uses feature hashing plus a small commerce synonym map for deterministic CI. `dataset.KnowledgeSearcher` is the runtime boundary: external mode implements it with DashScope embeddings/reranking, Milvus leaf search, PostgreSQL parent/version storage, and Redis parent caching while preserving the same tool result and retrieval trace. See [docs/rag.md](rag.md).
 
 The trace retains original/effective queries, dense/sparse/fused/final rankings, merged IDs, scores, latency, and cost units. Retrieval quality can therefore be diagnosed independently of downstream answer quality.
 

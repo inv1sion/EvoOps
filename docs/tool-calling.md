@@ -65,7 +65,7 @@ flowchart TD
 2. “只列出各广告计划 ROI 和消耗，不要处置建议。” → 广告查询 → 指标回答。即使 ROI 低也不会生成暂停行动。
 3. “诊断哪些广告效果差，结合手册给建议。” → 模型选择数据查询和知识检索（可同一轮，也可分轮）→ 规则诊断 → 摘要 → 待确认行动。
 
-数据仍来自 `data/demo/store.json`，没有接入真实广告平台；`window_days` 尚不驱动按日期查询。RAG 仍是本地哈希稠密检索 + BM25/RRF/规则重排，不是 Milvus 或 Qwen Rerank。商家记忆仍使用本地 JSON 文件。
+数据仍来自 `data/demo/store.json`，没有接入真实广告平台；`window_days` 尚不驱动按日期查询。RAG 默认使用本地哈希稠密检索以保证 CI 可复现；设置 `EVOOPS_RAG_BACKEND=external` 后，同一个 Tool 会切换到 text-embedding-v3、Milvus BM25、Qwen Rerank、PostgreSQL 父块与 Redis 缓存，详见 [分层混合 RAG](rag.md)。商家记忆仍使用本地 JSON 文件。
 
 ## 执行与错误边界
 

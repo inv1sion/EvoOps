@@ -272,13 +272,20 @@ type PolicyState struct {
 }
 
 type KnowledgeChunk struct {
-	ID       string   `json:"id"`
-	DocID    string   `json:"doc_id"`
-	ParentID string   `json:"parent_id,omitempty"`
-	Level    int      `json:"level"`
-	Title    string   `json:"title"`
-	Text     string   `json:"text"`
-	Tags     []string `json:"tags,omitempty"`
+	ID              string         `json:"id"`
+	DocID           string         `json:"doc_id"`
+	ParentID        string         `json:"parent_id,omitempty"`
+	ParentL1ID      string         `json:"parent_l1_id,omitempty"`
+	ParentL2ID      string         `json:"parent_l2_id,omitempty"`
+	StoreID         string         `json:"store_id,omitempty"`
+	Scope           string         `json:"scope,omitempty"`
+	DocumentVersion int64          `json:"document_version,omitempty"`
+	Level           int            `json:"level"`
+	ChunkIndex      int            `json:"chunk_index,omitempty"`
+	Title           string         `json:"title"`
+	Text            string         `json:"text"`
+	Tags            []string       `json:"tags,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 type RetrievalConfig struct {
@@ -303,16 +310,24 @@ type RetrievalHit struct {
 }
 
 type RetrievalTrace struct {
-	OriginalQuery  string   `json:"original_query"`
-	EffectiveQuery string   `json:"effective_query"`
-	RewriteUsed    bool     `json:"rewrite_used"`
-	RewriteReason  string   `json:"rewrite_reason,omitempty"`
-	DenseRanking   []string `json:"dense_ranking"`
-	SparseRanking  []string `json:"sparse_ranking"`
-	FusedRanking   []string `json:"fused_ranking"`
-	MergedIDs      []string `json:"merged_ids,omitempty"`
-	FinalRanking   []string `json:"final_ranking"`
-	DurationMS     int64    `json:"duration_ms"`
+	OriginalQuery     string   `json:"original_query"`
+	EffectiveQuery    string   `json:"effective_query"`
+	RewriteUsed       bool     `json:"rewrite_used"`
+	RewriteReason     string   `json:"rewrite_reason,omitempty"`
+	DenseRanking      []string `json:"dense_ranking"`
+	SparseRanking     []string `json:"sparse_ranking"`
+	FusedRanking      []string `json:"fused_ranking"`
+	MergedIDs         []string `json:"merged_ids,omitempty"`
+	FinalRanking      []string `json:"final_ranking"`
+	DurationMS        int64    `json:"duration_ms"`
+	Backend           string   `json:"backend,omitempty"`
+	EmbeddingModel    string   `json:"embedding_model,omitempty"`
+	RerankModel       string   `json:"rerank_model,omitempty"`
+	DenseOnlyFallback bool     `json:"dense_only_fallback,omitempty"`
+	FallbackReason    string   `json:"fallback_reason,omitempty"`
+	ParentCacheHits   int      `json:"parent_cache_hits,omitempty"`
+	ParentCacheMisses int      `json:"parent_cache_misses,omitempty"`
+	ContextCharacters int      `json:"context_characters,omitempty"`
 }
 
 type RetrievalResult struct {

@@ -36,7 +36,7 @@ The included synthetic stores cover four focused advertising cases: healthy deli
 | Agent runtime | Go + Eino Workflow with a bounded native tool-calling loop |
 | Evolution target | Versioned Prompt artifacts and allowlisted policy parameters |
 | Evaluation | Six-layer Harness plus independent LLM-as-Verifier/Judge |
-| Retrieval | Dense + BM25, weighted RRF, parent auto-merge, reranking |
+| Retrieval | text-embedding-v3 + Milvus BM25, weighted RRF, Qwen rerank, three-level auto-merge |
 | Learning | Store-scoped long-term memory built from explicit feedback and KPI outcomes |
 | Governance | Immutable safety boundary, approval gate, canary, release credential, rollback |
 
@@ -53,7 +53,7 @@ The included synthetic stores cover four focused advertising cases: healthy deli
 - **Human control:** medium/high-risk operations pause durably, canary assignment is deterministic, promotion is explicit, and rollback restores the previous policy.
 - **Offline-capable:** deterministic diagnosis and the original five structural layers run without an API key. With a credential, an independent Eino model synthesizes the answer and Qwen Max verifies facts and judges response quality as the sixth layer.
 
-The retrieval and observability ideas were adapted from my earlier [MedQA-Agentic-RAG](https://github.com/inv1sion/MedQA-Agentic-RAG) project. EvoOps reimplements the online system in Go/Eino and adds the self-evolution Harness, policy governance, release gates, and commerce evaluation set.
+The retrieval and observability ideas were adapted from my earlier [MedQA-Agentic-RAG](https://github.com/inv1sion/MedQA-Agentic-RAG) project. EvoOps now includes a real Go implementation: L3 leaves use 1024-dimensional `text-embedding-v3` vectors and Milvus BM25, weighted RRF and `qwen3-rerank`; L1/L2 parents live in PostgreSQL and are cached in Redis. The deterministic local backend remains the default for reproducible CI.
 
 ## Core loop
 
@@ -110,7 +110,7 @@ flowchart LR
     M --> T[(Model turns and tool traces)]
 ```
 
-The registry can discover allowlisted MCP SSE tools through Eino's official adapter, but those tools are not automatically exposed to the model. Local demo identity headers are not production authentication; replace them with verified OIDC/JWT claims and tenant policies. Data, retrieval and memory backends remain local demo implementations. Extra model rounds are charged to Harness cost proxies; existing low budgets may block the new path. Historical evaluation results do not establish performance for this new path.
+The registry can discover allowlisted MCP SSE tools through Eino's official adapter, but those tools are not automatically exposed to the model. Local demo identity headers are not production authentication; replace them with verified OIDC/JWT claims and tenant policies. Campaign execution and memory remain local demo implementations; retrieval can run locally or against the external stack described below. Extra model rounds are charged to Harness cost proxies; existing low budgets may block the new path. Historical evaluation results do not establish performance for this new path.
 
 ## Quick start
 
@@ -125,6 +125,18 @@ go run ./cmd/evoops serve
 ```
 
 Open <http://localhost:8080>. Use `demo-store` for the main low-ROI and memory flow, or `healthy-store`, `paused-store`, and `low-roi-store` for isolated cases.
+
+### Enable the external RAG stack
+
+```bash
+docker compose -f deployments/rag/docker-compose.yml up -d
+
+# Set OPENAI_API_KEY and EVOOPS_RAG_BACKEND=external in .env first.
+go run ./cmd/evoops ingest -path data/knowledge/advertising-roi-playbook.md -scope platform
+go run ./cmd/evoops serve
+```
+
+The ingestion command accepts PDF, TXT, Markdown, and JSONL. The model still invokes retrieval through the same `search_operations_knowledge` tool. See [Hierarchical Hybrid RAG](docs/rag.md) for chunking, storage, tenant isolation, fallbacks, and trace fields.
 
 The console opens in **Advertising Assistant** mode with a compact question → low-ROI plans → actions experience. Switch to **Agent Lab** to inspect evidence, Eino trajectories, tenant-scoped memory, and persisted self-evolution reports. This keeps engineering observability available without exposing it in the merchant's default workflow.
 
@@ -217,6 +229,7 @@ docs/                   architecture, Harness, evolution, decisions
 internal/agent/         Eino workflow, replay mode, diagnosis, synthesis
 internal/memory/        feedback-to-memory learning and tenant-scoped profiles
 internal/retrieval/     dense + BM25 + RRF + auto-merge + reranking
+internal/rag/           real Milvus + PostgreSQL + Redis + DashScope RAG
 internal/harness/       deterministic scoring, LLM verifier/judge, fingerprints, attribution
 internal/evolution/     baseline/candidate evaluation and release loop
 internal/prompt/        LLM Prompt Patch generation, immutable composition, static validation
@@ -228,7 +241,7 @@ internal/tools/         typed Eino tools and MCP discovery
 
 ## Engineering boundaries
 
-The local corpus and hashed dense vectorizer keep CI deterministic; the retriever boundary can be replaced by an embedding service/vector database while preserving the same retrieval trace and Harness contract. The file repository uses locked atomic replacement; PostgreSQL plus a distributed checkpoint/queue is the natural multi-instance implementation. The SSE demo buffers the completed trajectory; production streaming should emit live workflow callbacks.
+The local corpus and hashed dense vectorizer keep CI deterministic. `EVOOPS_RAG_BACKEND=external` switches the same Tool and Trace contract to real embeddings, Milvus, PostgreSQL, Redis, and Qwen reranking. PDF ingestion currently extracts the text layer and does not perform OCR. Docker Compose targets local demonstrations; production deployment still needs managed databases, backups, monitoring, and secret management. The SSE demo buffers the completed trajectory; production streaming should emit live workflow callbacks.
 
 Detailed design is in [docs/architecture.md](docs/architecture.md), [docs/self-evolution.md](docs/self-evolution.md), and [docs/decision-log.md](docs/decision-log.md).
 

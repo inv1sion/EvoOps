@@ -19,6 +19,10 @@ type Repository interface {
 	Execute(context.Context, OperationInput) (OperationReceipt, error)
 }
 
+type KnowledgeSearcher interface {
+	SearchKnowledge(context.Context, string, string, domain.RetrievalConfig) (domain.RetrievalResult, error)
+}
+
 type OperationInput struct {
 	StoreID string         `json:"store_id"`
 	Action  string         `json:"action"`
@@ -40,6 +44,7 @@ type MemoryRepository struct {
 	knowledge  []domain.KnowledgeArticle
 	operations []OperationReceipt
 	retriever  *retrieval.Engine
+	searcher   KnowledgeSearcher
 }
 
 func LoadFile(path string) (*MemoryRepository, error) {
@@ -81,11 +86,29 @@ func (r *MemoryRepository) SearchKnowledge(ctx context.Context, storeID, query s
 	if err != nil {
 		return domain.RetrievalResult{}, err
 	}
+	r.mu.RLock()
+	searcher := r.searcher
+	r.mu.RUnlock()
+	if searcher != nil {
+		return searcher.SearchKnowledge(ctx, storeID, query, cfg)
+	}
 	knowledge := store.Knowledge
 	if len(knowledge) == 0 {
 		knowledge = r.knowledge
 	}
 	return r.retriever.Search(ctx, knowledge, query, cfg), nil
+}
+
+func (r *MemoryRepository) SetKnowledgeSearcher(searcher KnowledgeSearcher) {
+	r.mu.Lock()
+	r.searcher = searcher
+	r.mu.Unlock()
+}
+
+func (r *MemoryRepository) PlatformKnowledge() []domain.KnowledgeArticle {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]domain.KnowledgeArticle(nil), r.knowledge...)
 }
 
 func (r *MemoryRepository) Execute(_ context.Context, input OperationInput) (OperationReceipt, error) {

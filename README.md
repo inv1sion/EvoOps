@@ -36,7 +36,7 @@ EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino
 | Agent 运行时 | Go + Eino Workflow，内嵌有预算的原生 Tool Calling 循环 |
 | 自进化对象 | 版本化 Prompt 产物与白名单策略参数 |
 | 评测体系 | 六层 Evaluation Harness + 独立 LLM-as-Verifier/Judge |
-| 检索链路 | Dense + BM25、加权 RRF、父子块自动合并、重排 |
+| 检索链路 | text-embedding-v3 + Milvus BM25、加权 RRF、Qwen Rerank、三级父子块合并 |
 | 反馈学习 | 基于显式反馈与 KPI 结果构建店铺级长期记忆 |
 | 发布治理 | 不可变安全边界、审批门禁、灰度、发布凭证与回滚 |
 
@@ -46,7 +46,7 @@ EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino
 - **同链路回放：** Harness 调用与在线 Agent 相同的 Eino Workflow 和工具循环，禁止执行副作用；双回放检查实际稳定性，不假定模型决策完全确定。
 - **完整执行轨迹：** 持久化每个节点、工具输入输出、检索排序、耗时、证据引用、行动状态、策略版本和审批事件。
 - **商家记忆与反馈学习：** 将明确的行动反馈和标准化 KPI 结果沉淀为租户隔离、来源可追溯的记忆事实；记忆只影响后续方案排序，不改变风险等级，也不能绕过审批。
-- **混合分层检索：** 采用确定性稠密检索与 BM25 双路召回，通过加权 RRF 融合，并支持父子块自动合并、业务短语重排和策略控制的查询改写。
+- **真实混合分层 RAG：** 复用 MedQA 的 L1/L2/L3 参数，L3 以 `text-embedding-v3` 1024 维向量和 Milvus 内置 BM25 双路召回，经加权 RRF + `qwen3-rerank` 精排；L1/L2 存 PostgreSQL，并通过 Redis 缓存完成两级 Auto-merging。默认保留本地后端用于可复现 CI。
 - **六层评测 Harness：** 分别评测检索、轨迹、工具安全、业务效果、LLM Verifier/Judge 质量以及成本/时延；安全、可复现性与事实有据性均为硬门禁。
 - **受控 Prompt 自进化：** 将失败归因和 Judge 反馈交给 Eino Prompt Optimizer，生成边界受限的 Prompt Patch；在候选回放前持久化完整 Prompt、父版本、模型、演进理由、证据与静态校验结果。审批、证据、记忆和工具权限边界不可被改写。
 - **发布凭证：** 通过评测的策略会记录 Harness 报告、评测集版本及其对比的线上基线；过期候选无法进入灰度或正式发布。
@@ -127,6 +127,18 @@ go run ./cmd/evoops serve
 ```
 
 打开 <http://localhost:8080>。主流程和记忆学习使用 `demo-store`；也可以使用 `healthy-store`、`paused-store` 和 `low-roi-store` 运行隔离用例。
+
+### 启用真实 RAG
+
+```bash
+docker compose -f deployments/rag/docker-compose.yml up -d
+
+# 在 .env 中设置 OPENAI_API_KEY 和 EVOOPS_RAG_BACKEND=external 后执行
+go run ./cmd/evoops ingest -path data/knowledge/advertising-roi-playbook.md -scope platform
+go run ./cmd/evoops serve
+```
+
+入库支持 PDF、TXT、Markdown 与 JSONL；检索仍由模型通过同一个 `search_operations_knowledge` Tool 自主触发。详细的分块、存储、租户隔离、降级策略与 Trace 字段见 [分层混合 RAG](docs/rag.md)。
 
 控制台默认进入中文**广告助手**。切换到 **Agent 实验室**后，可以检查证据链、模型工具调用轮次、Eino 执行轨迹、租户级记忆和持久化自进化报告。README 顶部提供中文与 English 文档切换。
 
@@ -219,6 +231,7 @@ docs/                   架构、Harness、自进化与决策记录
 internal/agent/         Eino Workflow、回放模式、诊断与总结
 internal/memory/        反馈到记忆的学习与租户级画像
 internal/retrieval/     Dense + BM25 + RRF + 自动合并 + 重排
+internal/rag/           Milvus + PostgreSQL + Redis + DashScope 真实 RAG
 internal/harness/       确定性评分、LLM Verifier/Judge、指纹与归因
 internal/evolution/     基线/候选评测与发布闭环
 internal/prompt/        LLM Prompt Patch、不可变组合与静态校验
@@ -230,7 +243,7 @@ internal/tools/         类型化 Eino 工具与 MCP 发现
 
 ## 工程边界
 
-本地语料与哈希稠密向量器保证 CI 可复现；检索器接口可以替换为 Embedding 服务和向量数据库，同时保留相同的检索轨迹与 Harness 契约。文件仓库采用加锁原子替换；多实例部署可自然演进为 PostgreSQL、分布式检查点和任务队列。SSE Demo 当前缓冲完整轨迹后输出；生产流式链路应对接实时 Workflow Callback。
+本地语料与哈希稠密向量器保证 CI 可复现；`EVOOPS_RAG_BACKEND=external` 切换到真实 Embedding、Milvus、PostgreSQL、Redis 与 Qwen Rerank，同时保持相同的 Tool 和 Trace 契约。当前 PDF 入库只解析文本层，不包含 OCR；Docker Compose 面向本地演示，生产部署仍需托管数据库、备份、监控与密钥管理。SSE Demo 当前缓冲完整轨迹后输出；生产流式链路应对接实时 Workflow Callback。
 
 详细设计见 [docs/architecture.md](docs/architecture.md)、[docs/self-evolution.md](docs/self-evolution.md) 和 [docs/decision-log.md](docs/decision-log.md)。
 

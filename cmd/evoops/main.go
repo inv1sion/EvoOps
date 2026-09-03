@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/inv1sion/evoops/internal/config"
 	"github.com/inv1sion/evoops/internal/domain"
 	"github.com/inv1sion/evoops/internal/httpapi"
+	"github.com/inv1sion/evoops/internal/rag"
 )
 
 func main() {
@@ -33,10 +35,49 @@ func main() {
 		evolve(os.Args[2:])
 	case "harness":
 		runHarness(os.Args[2:])
+	case "ingest":
+		ingest(os.Args[2:])
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q\nusage: evoops [serve|demo|harness|evolve]\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "unknown command %q\nusage: evoops [serve|demo|harness|evolve|ingest]\n", os.Args[1])
 		os.Exit(2)
 	}
+}
+
+func ingest(args []string) {
+	flags := flag.NewFlagSet("ingest", flag.ExitOnError)
+	path := flags.String("path", "", "PDF, TXT, Markdown or JSONL document path")
+	title := flags.String("title", "", "document title; defaults to the file name")
+	scope := flags.String("scope", rag.ScopePlatform, "platform or store")
+	storeID := flags.String("store", "", "required when scope=store")
+	_ = flags.Parse(args)
+	if *path == "" {
+		log.Fatal("ingest requires -path")
+	}
+	parsed, err := rag.ParseFile(*path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	absPath, err := filepath.Abs(*path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *title == "" {
+		*title = filepath.Base(absPath)
+	}
+	ctx := context.Background()
+	application := bootstrap(ctx)
+	defer application.Close()
+	if application.RAG == nil {
+		log.Fatal("ingest requires EVOOPS_RAG_BACKEND=external")
+	}
+	result, err := application.RAG.Ingest(ctx, rag.IngestInput{
+		StoreID: *storeID, Scope: *scope, Title: *title, SourceURI: "file:///" + filepath.ToSlash(absPath),
+		MediaType: parsed.MediaType, Content: parsed.Content, Metadata: map[string]any{"source_path": absPath},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	printJSON(result)
 }
 
 func bootstrap(ctx context.Context) *app.App {
