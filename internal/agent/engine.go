@@ -26,6 +26,8 @@ type execution struct {
 	DryRun         bool
 	UseMemory      bool
 	MemoryOverride *domain.MerchantMemoryProfile
+	Task           string
+	PlannerAnswer  string
 }
 
 type MerchantMemoryReader interface {
@@ -38,24 +40,43 @@ type Engine struct {
 	tools       *tools.Registry
 	synthesizer Synthesizer
 	memory      MerchantMemoryReader
+	planner     *ToolCallingPlanner
 	runner      compose.Runnable[*execution, *execution]
 	mu          sync.Mutex
 }
 
 func NewEngine(ctx context.Context, repo repository.Repository, policies *policy.Manager, registry *tools.Registry, synthesizer Synthesizer, memoryReaders ...MerchantMemoryReader) (*Engine, error) {
+	return newEngine(ctx, repo, policies, registry, synthesizer, nil, memoryReaders...)
+}
+
+func NewToolCallingEngine(ctx context.Context, repo repository.Repository, policies *policy.Manager, registry *tools.Registry, synthesizer Synthesizer, planner *ToolCallingPlanner, memoryReaders ...MerchantMemoryReader) (*Engine, error) {
+	if planner == nil {
+		return nil, fmt.Errorf("tool-calling planner is required")
+	}
+	return newEngine(ctx, repo, policies, registry, synthesizer, planner, memoryReaders...)
+}
+
+func newEngine(ctx context.Context, repo repository.Repository, policies *policy.Manager, registry *tools.Registry, synthesizer Synthesizer, planner *ToolCallingPlanner, memoryReaders ...MerchantMemoryReader) (*Engine, error) {
 	if synthesizer == nil {
 		synthesizer = LocalSynthesizer{}
 	}
-	engine := &Engine{repo: repo, policies: policies, tools: registry, synthesizer: synthesizer}
+	engine := &Engine{repo: repo, policies: policies, tools: registry, synthesizer: synthesizer, planner: planner}
 	if len(memoryReaders) > 0 {
 		engine.memory = memoryReaders[0]
 	}
 	wf := compose.NewWorkflow[*execution, *execution]()
-	wf.AddLambdaNode("gather_campaign_data", compose.InvokableLambda(engine.gather)).AddInput(compose.START)
-	wf.AddLambdaNode("load_merchant_memory", compose.InvokableLambda(engine.loadMerchantMemory)).AddInput("gather_campaign_data")
-	wf.AddLambdaNode("diagnose_campaign_roi", compose.InvokableLambda(engine.diagnose)).AddInput("load_merchant_memory")
-	wf.AddLambdaNode("retrieve_ad_playbook", compose.InvokableLambda(engine.retrieve)).AddInput("diagnose_campaign_roi")
-	wf.AddLambdaNode("synthesize_ad_plan", compose.InvokableLambda(engine.synthesize)).AddInput("retrieve_ad_playbook")
+	if planner != nil {
+		wf.AddLambdaNode("load_merchant_memory", compose.InvokableLambda(engine.loadMerchantMemory)).AddInput(compose.START)
+		wf.AddLambdaNode("model_tool_collection", compose.InvokableLambda(engine.collectWithTools)).AddInput("load_merchant_memory")
+		wf.AddLambdaNode("diagnose_campaign_roi", compose.InvokableLambda(engine.diagnose)).AddInput("model_tool_collection")
+		wf.AddLambdaNode("synthesize_ad_plan", compose.InvokableLambda(engine.synthesize)).AddInput("diagnose_campaign_roi")
+	} else {
+		wf.AddLambdaNode("gather_campaign_data", compose.InvokableLambda(engine.gather)).AddInput(compose.START)
+		wf.AddLambdaNode("load_merchant_memory", compose.InvokableLambda(engine.loadMerchantMemory)).AddInput("gather_campaign_data")
+		wf.AddLambdaNode("diagnose_campaign_roi", compose.InvokableLambda(engine.diagnose)).AddInput("load_merchant_memory")
+		wf.AddLambdaNode("retrieve_ad_playbook", compose.InvokableLambda(engine.retrieve)).AddInput("diagnose_campaign_roi")
+		wf.AddLambdaNode("synthesize_ad_plan", compose.InvokableLambda(engine.synthesize)).AddInput("retrieve_ad_playbook")
+	}
 	wf.AddLambdaNode("approval_and_execution_gate", compose.InvokableLambda(engine.guard)).AddInput("synthesize_ad_plan")
 	wf.End().AddInput("approval_and_execution_gate")
 	runner, err := wf.Compile(ctx, compose.WithGraphName("EvoOpsAdvertisingROIWorkflow"))
@@ -91,6 +112,15 @@ func (e *Engine) ReplayWithMemory(ctx context.Context, request domain.DiagnosisR
 }
 
 func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selected domain.Policy, mode string, persist, dryRun bool, memoryOverride *domain.MerchantMemoryProfile) (*domain.Run, error) {
+	if !validRequestedTask(request.Task) {
+		return nil, fmt.Errorf("task must be auto, diagnosis, data_query or knowledge_qa")
+	}
+	if len(request.Question) > 8000 {
+		return nil, fmt.Errorf("question exceeds 8000 bytes")
+	}
+	if e.planner == nil && request.Task != "" && request.Task != "auto" && request.Task != "diagnosis" {
+		return nil, fmt.Errorf("data_query and knowledge_qa require model tool calling")
+	}
 	if strings.TrimSpace(request.StoreID) == "" {
 		return nil, fmt.Errorf("store_id is required")
 	}
@@ -104,12 +134,16 @@ func (e *Engine) run(ctx context.Context, request domain.DiagnosisRequest, selec
 		ID: uuid.NewString(), Mode: mode, Request: request, Status: domain.RunRunning,
 		PolicyVersion: selected.Version, StartedAt: time.Now().UTC(), Steps: []domain.Step{},
 	}
+	run.ExecutionMode = "fixed_workflow"
+	if e.planner != nil {
+		run.ExecutionMode = "model_tool_calling"
+	}
 	if persist {
 		if err := e.repo.SaveRun(ctx, run); err != nil {
 			return nil, err
 		}
 	}
-	state := &execution{Request: request, Run: run, Policy: selected, Context: AnalysisContext{StoreID: request.StoreID}, DryRun: dryRun, UseMemory: mode == "live", MemoryOverride: memoryOverride}
+	state := &execution{Request: request, Run: run, Policy: selected, Context: AnalysisContext{StoreID: request.StoreID}, DryRun: dryRun, UseMemory: mode == "live", MemoryOverride: memoryOverride, Task: "diagnosis"}
 	result, err := e.runner.Invoke(ctx, state)
 	if err != nil {
 		run.Status = domain.RunFailed
@@ -225,8 +259,27 @@ func (e *Engine) loadMerchantMemory(ctx context.Context, state *execution) (*exe
 
 func (e *Engine) diagnose(_ context.Context, state *execution) (*execution, error) {
 	step := e.beginStep(state.Run, "diagnose_campaign_roi", "reasoning", map[string]any{"policy_version": state.Policy.Version, "roi_threshold": state.Policy.CampaignROIThreshold})
-	state.Analysis = Analyze(state.Context, state.Policy)
-	ApplyMerchantMemory(&state.Analysis, state.Context.Memory)
+	if state.Task == "diagnosis" {
+		state.Analysis = Analyze(state.Context, state.Policy)
+		ApplyMerchantMemory(&state.Analysis, state.Context.Memory)
+		if e.planner != nil {
+			state.Analysis.ExecutionNote = "本次全部行动均是待用户确认的候选，创建复核任务和暂停广告都尚未执行。不得声称任何行动已执行。"
+			state.Analysis.Summary = fmt.Sprintf("根据广告演示快照，发现 %d 个低 ROI 计划。建议核验归因；创建复核任务和暂停广告均须用户确认。", len(state.Analysis.Signals))
+			for i := range state.Analysis.Actions {
+				state.Analysis.Actions[i].Status = "waiting_approval"
+			}
+		}
+	} else {
+		// Read-only answers never create operations, even after reading low-ROI data.
+		state.Analysis = Analysis{Summary: state.PlannerAnswer}
+		for _, campaign := range state.Context.Campaigns {
+			state.Analysis.Evidence = append(state.Analysis.Evidence, domain.Evidence{ID: "campaign:" + campaign.ID, Source: tools.ToolCampaigns, Ref: campaign.ID,
+				Excerpt: fmt.Sprintf("%s；状态 %s；ROI %.2f；消耗 %.0f；成交额 %.0f。", campaign.Name, campaign.Status, campaign.ROI, campaign.Spend, campaign.Revenue)})
+		}
+	}
+	if e.planner != nil {
+		AddKnowledgeEvidence(&state.Analysis, state.Context.Knowledge)
+	}
 	e.finishStep(state.Run, step, map[string]any{"signals": state.Analysis.Signals, "proposed_actions": len(state.Analysis.Actions), "memory_facts_considered": len(state.Context.Memory.Memories)}, nil)
 	return state, nil
 }
@@ -257,6 +310,11 @@ func (e *Engine) retrieve(ctx context.Context, state *execution) (*execution, er
 }
 
 func (e *Engine) synthesize(ctx context.Context, state *execution) (*execution, error) {
+	if state.Task != "diagnosis" {
+		step := e.beginStep(state.Run, "synthesize_ad_plan", "workflow", map[string]any{"task": state.Task, "source": "tool_calling_final_answer"})
+		e.finishStep(state.Run, step, map[string]any{"summary": state.Analysis.Summary, "extra_model_call": false}, nil)
+		return state, nil
+	}
 	input := map[string]any{
 		"provider": e.synthesizer.Name(), "prompt_revision": state.Policy.PromptRevision,
 		"prompt_generator": state.Policy.Prompt.Generator, "prompt_validation_passed": state.Policy.Prompt.Validation.Passed,
@@ -280,7 +338,9 @@ func (e *Engine) guard(ctx context.Context, state *execution) (*execution, error
 	var pending []string
 	for i := range state.Analysis.Actions {
 		action := &state.Analysis.Actions[i]
-		if RequiresApproval(action.Risk, state.Policy.RequiredApprovalRisk) {
+		// A model-selected intent is not authorization for side effects. The new
+		// tool-calling path proposes actions only; all writes require confirmation.
+		if e.planner != nil || RequiresApproval(action.Risk, state.Policy.RequiredApprovalRisk) {
 			action.Status = "waiting_approval"
 			pending = append(pending, action.ID)
 			continue
@@ -305,11 +365,12 @@ func (e *Engine) guard(ctx context.Context, state *execution) (*execution, error
 	if len(pending) > 0 {
 		status = domain.RunWaitingApproval
 		state.Run.PendingApproval = &domain.ApprovalRequest{
-			RunID: state.Run.ID, Reason: "一个或多个操作达到当前策略规定的人工审批风险阈值。", ActionIDs: pending,
+			RunID: state.Run.ID, Reason: "模型驱动模式下所有执行操作均需确认；固定流程按风险阈值审批。", ActionIDs: pending,
 		}
 	}
 	state.Run.Status = status
 	state.Run.Result = &domain.DiagnosisResult{
+		Task:  state.Task,
 		RunID: state.Run.ID, StoreID: state.Request.StoreID, Summary: state.Analysis.Summary,
 		Signals: state.Analysis.Signals, Evidence: state.Analysis.Evidence, Actions: state.Analysis.Actions,
 		PolicyVersion: state.Policy.Version, Status: status,

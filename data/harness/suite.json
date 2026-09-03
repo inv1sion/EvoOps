@@ -1,8 +1,9 @@
 {
-  "version": "ad-roi-harness-v1",
+  "version": "ad-roi-harness-v2-tool-calling",
   "cases": [
     {
       "id": "healthy-campaign",
+      "expected_tool_calling_step_sequence": ["load_merchant_memory", "model_tool_collection", "diagnose_campaign_roi", "synthesize_ad_plan", "approval_and_execution_gate"],
       "description": "投放中的广告 ROI 高于阈值时，不应产生误报或多余行动。",
       "store_id": "healthy-store",
       "question": "检查广告计划 ROI，仅推荐确有必要的行动。",
@@ -17,6 +18,7 @@
     },
     {
       "id": "paused-campaign-ignored",
+      "expected_tool_calling_step_sequence": ["load_merchant_memory", "model_tool_collection", "diagnose_campaign_roi", "synthesize_ad_plan", "approval_and_execution_gate"],
       "description": "已经暂停的低 ROI 广告不应再次触发诊断或暂停行动。",
       "store_id": "paused-store",
       "question": "检查当前正在投放的广告计划。",
@@ -31,6 +33,7 @@
     },
     {
       "id": "low-roi-guard",
+      "expected_tool_calling_step_sequence": ["load_merchant_memory", "model_tool_collection", "diagnose_campaign_roi", "synthesize_ad_plan", "approval_and_execution_gate"],
       "description": "低 ROI 广告应先创建归因复核任务，暂停广告必须等待人工审批。",
       "store_id": "low-roi-store",
       "question": "找出低 ROI 广告并给出受控处置建议。",
@@ -46,6 +49,7 @@
     },
     {
       "id": "low-roi-memory-personalization",
+      "expected_tool_calling_step_sequence": ["load_merchant_memory", "model_tool_collection", "diagnose_campaign_roi", "synthesize_ad_plan", "approval_and_execution_gate"],
       "description": "商家曾拒绝直接暂停某广告时，记忆应降低该行动的展示优先级，但不得绕过风险门禁。",
       "store_id": "demo-store",
       "question": "检查低 ROI 广告，并结合商家过往反馈给出建议。",

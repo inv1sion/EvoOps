@@ -24,6 +24,7 @@ type DiagnosisRequest struct {
 	StoreID  string `json:"store_id"`
 	Question string `json:"question"`
 	Window   int    `json:"window_days,omitempty"`
+	Task     string `json:"task,omitempty"` // auto (default), diagnosis, data_query, knowledge_qa
 }
 
 type Campaign struct {
@@ -81,6 +82,7 @@ type Action struct {
 }
 
 type DiagnosisResult struct {
+	Task          string     `json:"task,omitempty"`
 	RunID         string     `json:"run_id"`
 	StoreID       string     `json:"store_id"`
 	Summary       string     `json:"summary"`
@@ -92,11 +94,35 @@ type DiagnosisResult struct {
 }
 
 type ToolCall struct {
-	Name       string         `json:"name"`
-	Arguments  map[string]any `json:"arguments"`
-	Result     any            `json:"result,omitempty"`
-	DurationMS int64          `json:"duration_ms"`
-	Error      string         `json:"error,omitempty"`
+	ID             string         `json:"id,omitempty"`
+	Round          int            `json:"round,omitempty"`
+	Origin         string         `json:"origin,omitempty"`
+	ModelArguments string         `json:"model_arguments,omitempty"`
+	Cached         bool           `json:"cached,omitempty"`
+	ErrorCode      string         `json:"error_code,omitempty"`
+	Name           string         `json:"name"`
+	Arguments      map[string]any `json:"arguments"`
+	Result         any            `json:"result,omitempty"`
+	DurationMS     int64          `json:"duration_ms"`
+	Error          string         `json:"error,omitempty"`
+}
+
+// ModelTurn stores observable decisions, not private reasoning / chain-of-thought.
+type ModelTurn struct {
+	Round            int                `json:"round"`
+	DurationMS       int64              `json:"duration_ms"`
+	Requests         []ModelToolRequest `json:"requests,omitempty"`
+	FinalOutput      string             `json:"final_output,omitempty"`
+	Error            string             `json:"error,omitempty"`
+	FinishReason     string             `json:"finish_reason,omitempty"`
+	PromptTokens     int                `json:"prompt_tokens,omitempty"`
+	CompletionTokens int                `json:"completion_tokens,omitempty"`
+}
+
+type ModelToolRequest struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 type Step struct {
@@ -108,6 +134,7 @@ type Step struct {
 	Input      map[string]any `json:"input,omitempty"`
 	Output     any            `json:"output,omitempty"`
 	ToolCalls  []ToolCall     `json:"tool_calls,omitempty"`
+	ModelTurns []ModelTurn    `json:"model_turns,omitempty"`
 	Error      string         `json:"error,omitempty"`
 }
 
@@ -124,6 +151,7 @@ type ApprovalDecision struct {
 }
 
 type Run struct {
+	ExecutionMode   string           `json:"execution_mode,omitempty"`
 	ID              string           `json:"id"`
 	Mode            string           `json:"mode"`
 	Request         DiagnosisRequest `json:"request"`
@@ -294,21 +322,22 @@ type RetrievalResult struct {
 }
 
 type HarnessCase struct {
-	ID                      string             `json:"id"`
-	Description             string             `json:"description"`
-	StoreID                 string             `json:"store_id"`
-	Question                string             `json:"question"`
-	RelevantChunkIDs        []string           `json:"relevant_chunk_ids"`
-	ExpectedSignals         []string           `json:"expected_signals"`
-	ExpectedOperations      []string           `json:"expected_operations"`
-	ForbiddenAutoOperations []string           `json:"forbidden_auto_operations"`
-	RequiredTools           []string           `json:"required_tools"`
-	ExpectedStepSequence    []string           `json:"expected_step_sequence"`
-	MemoryFixture           []MerchantMemory   `json:"memory_fixture,omitempty"`
-	ExpectedPreferences     map[string]string  `json:"expected_preferences,omitempty"`
-	OutcomeWeights          map[string]float64 `json:"outcome_weights,omitempty"`
-	MaxLatencyMS            int64              `json:"max_latency_ms"`
-	MaxCostUnits            float64            `json:"max_cost_units"`
+	ID                              string             `json:"id"`
+	Description                     string             `json:"description"`
+	StoreID                         string             `json:"store_id"`
+	Question                        string             `json:"question"`
+	RelevantChunkIDs                []string           `json:"relevant_chunk_ids"`
+	ExpectedSignals                 []string           `json:"expected_signals"`
+	ExpectedOperations              []string           `json:"expected_operations"`
+	ForbiddenAutoOperations         []string           `json:"forbidden_auto_operations"`
+	RequiredTools                   []string           `json:"required_tools"`
+	ExpectedStepSequence            []string           `json:"expected_step_sequence"`
+	ExpectedToolCallingStepSequence []string           `json:"expected_tool_calling_step_sequence,omitempty"`
+	MemoryFixture                   []MerchantMemory   `json:"memory_fixture,omitempty"`
+	ExpectedPreferences             map[string]string  `json:"expected_preferences,omitempty"`
+	OutcomeWeights                  map[string]float64 `json:"outcome_weights,omitempty"`
+	MaxLatencyMS                    int64              `json:"max_latency_ms"`
+	MaxCostUnits                    float64            `json:"max_cost_units"`
 }
 
 type HarnessLayerReport struct {

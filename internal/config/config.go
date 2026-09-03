@@ -24,6 +24,7 @@ type Config struct {
 	JudgeModel           string
 	PromptOptimizerModel string
 	LLMEvalEnabled       bool
+	ToolCallingEnabled   bool
 	MCPSSEURLs           []string
 	MCPAllowlist         []string
 }
@@ -44,6 +45,7 @@ func Load() Config {
 		JudgeModel:           env("EVOOPS_JUDGE_MODEL", DefaultJudgeModel),
 		PromptOptimizerModel: env("EVOOPS_PROMPT_OPTIMIZER_MODEL", openAIModel),
 		LLMEvalEnabled:       boolEnv("EVOOPS_LLM_EVAL_ENABLED", true),
+		ToolCallingEnabled:   boolEnv("EVOOPS_TOOL_CALLING_ENABLED", true),
 		MCPSSEURLs:           csv(os.Getenv("EVOOPS_MCP_SSE_URLS")),
 		MCPAllowlist:         csv(os.Getenv("EVOOPS_MCP_TOOL_ALLOWLIST")),
 	}

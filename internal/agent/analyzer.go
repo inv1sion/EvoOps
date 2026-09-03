@@ -17,6 +17,7 @@ type AnalysisContext struct {
 }
 
 type Analysis struct {
+	ExecutionNote  string
 	Summary        string
 	Signals        []domain.Signal
 	Evidence       []domain.Evidence

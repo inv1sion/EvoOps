@@ -74,12 +74,14 @@ func serve(args []string) {
 func demo(args []string) {
 	flags := flag.NewFlagSet("demo", flag.ExitOnError)
 	storeID := flags.String("store", "demo-store", "store identifier")
+	question := flags.String("question", "找出低 ROI 广告并给出受控处置建议。", "question for the advertising assistant")
+	task := flags.String("task", "auto", "auto, diagnosis, data_query or knowledge_qa")
 	approve := flags.Bool("approve", false, "approve pending medium/high-risk operations")
 	_ = flags.Parse(args)
 	ctx := context.Background()
 	application := bootstrap(ctx)
 	defer application.Close()
-	run, err := application.Agent.Run(ctx, domain.DiagnosisRequest{StoreID: *storeID, Question: "找出低 ROI 广告并给出受控处置建议。"})
+	run, err := application.Agent.Run(ctx, domain.DiagnosisRequest{StoreID: *storeID, Question: *question, Task: *task})
 	if err != nil {
 		log.Fatal(err)
 	}

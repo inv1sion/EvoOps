@@ -60,7 +60,7 @@ func (s *Server) routes() {
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "service": "evoops", "time": time.Now().UTC()})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "service": "evoops", "time": time.Now().UTC(), "tool_calling_enabled": s.app.Config.ToolCallingEnabled && s.app.Config.OpenAIAPIKey != ""})
 }
 
 func (s *Server) listTools(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +75,7 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 	}
 	run, err := s.app.Agent.Run(r.Context(), request)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err)
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "run": run})
 		return
 	}
 	writeJSON(w, http.StatusCreated, run)
@@ -98,7 +98,7 @@ func (s *Server) streamRun(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 	run, err := s.app.Agent.Run(r.Context(), request)
 	if err != nil {
-		sse(w, "error", map[string]string{"error": err.Error()})
+		sse(w, "error", map[string]any{"error": err.Error(), "run": run})
 		flusher.Flush()
 		return
 	}

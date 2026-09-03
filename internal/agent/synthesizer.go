@@ -49,16 +49,17 @@ func (s *EinoSynthesizer) ModelName() string { return s.modelName }
 
 func (s *EinoSynthesizer) Synthesize(ctx context.Context, request domain.DiagnosisRequest, analysis Analysis) (string, error) {
 	payload, err := json.Marshal(map[string]any{
-		"question": request.Question,
-		"signals":  analysis.Signals,
-		"evidence": analysis.Evidence,
-		"actions":  analysis.Actions,
+		"question":       request.Question,
+		"signals":        analysis.Signals,
+		"evidence":       analysis.Evidence,
+		"actions":        analysis.Actions,
+		"execution_note": analysis.ExecutionNote,
 	})
 	if err != nil {
 		return "", err
 	}
 	messages := []*schema.Message{
-		schema.SystemMessage(synthesisSystemPrompt(analysis.PromptRevision, analysis.Prompt)),
+		schema.SystemMessage(synthesisSystemPrompt(analysis.PromptRevision, analysis.Prompt) + "\n" + analysis.ExecutionNote),
 		schema.UserMessage(string(payload)),
 	}
 	response, err := s.model.Generate(ctx, messages)

@@ -20,7 +20,13 @@ approval / execution                      failure attribution
                                           canary / promote / rollback
 ```
 
-## Online sequence
+## Model-driven path (default with credentials)
+
+The Eino Workflow now contains a bounded native tool-calling loop: merchant memory → model-selected read tools → deterministic diagnosis or read-only answer → synthesis → approval gate. The planner exposes only campaign reads and knowledge searches, binds tenant/policy arguments in application code, and returns tool results with matching call IDs. Data/knowledge questions cannot create operations; **all actions in model-driven mode require confirmation**, including low-risk tasks. See [the detailed protocol and examples](tool-calling.md).
+
+`execution_mode` and per-step `model_turns` distinguish this path from the offline fixed workflow. Replay uses whichever path the application is configured to use; it never approves or executes a model-path operation. The planner prompt is not part of automatic summary-prompt evolution.
+
+## Fixed online sequence (no credentials or Tool Calling disabled)
 
 1. `gather_campaign_data` invokes one typed Eino tool for campaign status, spend, revenue, current ROI, and previous ROI.
 2. `load_merchant_memory` reads the store-scoped memory profile. Each fact retains its feedback, run, confidence, and timestamp lineage.

@@ -61,7 +61,17 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 		synthesizer = realModel
 	}
-	engine, err := agent.NewEngine(ctx, repo, policies, registry, synthesizer, memoryService)
+	var engine *agent.Engine
+	if cfg.OpenAIAPIKey != "" && cfg.ToolCallingEnabled {
+		planner, plannerErr := agent.NewEinoToolCallingPlanner(ctx, cfg.OpenAIAPIKey, cfg.OpenAIBaseURL, cfg.OpenAIModel)
+		if plannerErr != nil {
+			registry.Close()
+			return nil, fmt.Errorf("initialize tool calling: %w", plannerErr)
+		}
+		engine, err = agent.NewToolCallingEngine(ctx, repo, policies, registry, synthesizer, planner, memoryService)
+	} else {
+		engine, err = agent.NewEngine(ctx, repo, policies, registry, synthesizer, memoryService)
+	}
 	if err != nil {
 		registry.Close()
 		return nil, err

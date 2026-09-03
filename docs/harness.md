@@ -8,6 +8,8 @@ The versioned suite lives in `data/harness/suite.json`. Each case points to a sy
 
 ## Case shape
 
+The v2 suite retains fixed-workflow expectations and adds `expected_tool_calling_step_sequence` for the model-driven path. The suite explicitly requests `task=diagnosis`; automatic task selection is tested separately. Every planner round is counted as a model call, and successful cache hits are not double-charged as tool executions. Multiple search results are merged for retrieval scoring. The existing cost/latency thresholds are unchanged: an extra-model-call path may legitimately fail them. Double replay still calls the model twice, so different queries or round counts can fail the strict stability gate. Prior v1 results must not be presented as measurements of Tool Calling.
+
 ```json
 {
   "id": "low-roi-guard",

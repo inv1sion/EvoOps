@@ -148,7 +148,7 @@
         </div>
 
         <div id="approval-banner" class="approval-banner">
-          <div><strong>暂停广告需要你确认</strong><br><span style="color:var(--muted)">系统不会自动暂停任何广告计划。</span></div>
+          <div><strong>执行这些行动需要你确认</strong><br><span style="color:var(--muted)">模型驱动模式仅生成候选行动，创建任务和暂停广告均须确认。</span></div>
           <div class="buttons"><button onclick="approve(true)">批准行动</button><button class="danger" onclick="approve(false)">拒绝</button></div>
         </div>
 
@@ -217,8 +217,9 @@ const signalLabels={campaign_roi_low:'广告 ROI 低于阈值'};
 const statusLabels={running:'运行中',waiting_approval:'待审批',completed:'已完成',rejected:'已拒绝',failed:'失败',proposed:'待执行',executed:'已执行',would_execute:'模拟执行'};
 const riskLabels={low:'低风险',medium:'中风险',high:'高风险',critical:'严重风险'};
 const toolLabels={get_campaign_performance:'广告计划数据',search_operations_knowledge:'广告处置手册',execute_operation:'广告操作',merchant_memory:'商家长期记忆'};
-const stepLabels={gather_campaign_data:'读取广告计划',load_merchant_memory:'读取商家长期记忆',diagnose_campaign_roi:'判断低 ROI 计划',retrieve_ad_playbook:'检索广告处置手册',synthesize_ad_plan:'生成广告诊断',approval_and_execution_gate:'审批与执行门禁',resume_approved_operations:'恢复已审批操作'};
-const kindLabels={workflow:'工作流',memory:'长期记忆',reasoning:'规则诊断',rag:'检索增强',model:'模型生成',guard:'安全门禁',approval:'审批恢复',tool:'工具调用'};
+const stepLabels={gather_campaign_data:'读取广告计划',load_merchant_memory:'读取商家长期记忆',model_tool_collection:'模型自主选择工具',diagnose_campaign_roi:'规则诊断与结果整理',retrieve_ad_playbook:'检索广告处置手册',synthesize_ad_plan:'生成回答',approval_and_execution_gate:'审批与执行门禁',resume_approved_operations:'恢复已审批操作'};
+const kindLabels={workflow:'工作流',memory:'长期记忆',reasoning:'规则诊断',rag:'检索增强',model:'模型生成',agent:'模型工具调用循环',guard:'安全门禁',approval:'审批恢复',tool:'工具调用'};
+const taskLabels={diagnosis:'广告诊断',data_query:'广告数据查询',knowledge_qa:'广告知识问答',clarify:'需要补充或确认'};
 const preferenceLabels={preferred:'历史偏好',deprioritized:'历史上不偏好'};
 const memoryKindLabels={action_preference:'行动偏好',action_outcome:'行动结果',diagnosis_episode:'诊断反馈'};
 const layerLabels={retrieval:'检索质量',trajectory:'轨迹质量',safety:'工具安全',outcome:'业务效果',model_quality:'模型事实与任务核验',cost:'成本性能'};
@@ -227,7 +228,7 @@ const valueLabels={true:'是',false:'否',none:'不改写',step_back:'上位问�
 const label=(labels,value)=>labels[value]||value;
 const displayValue=value=>valueLabels[String(value)]??value;
 function friendlyError(message){if(!message)return '未知错误';if(message.includes('store_id is required'))return '请输入店铺编号';if(message.includes('not found'))return '未找到对应数据';if(message.includes('not permitted'))return '当前账号没有执行该操作的权限';if(message.includes('invalid JSON'))return '请求内容格式不正确';if(message.includes('internal server error'))return '服务内部发生错误';return '服务返回错误，请查看后台日志'}
-const request=async(url,options={})=>{const res=await fetch(url,{headers:{'Content-Type':'application/json','X-EvoOps-Role':'admin','X-EvoOps-Actor':'local-console'},...options});const data=await res.json();if(!res.ok)throw new Error(friendlyError(data.error||res.statusText));return data};
+const request=async(url,options={})=>{const res=await fetch(url,{headers:{'Content-Type':'application/json','X-EvoOps-Role':'admin','X-EvoOps-Actor':'local-console'},...options});const data=await res.json();if(!res.ok){const error=new Error(friendlyError(data.error||res.statusText));error.run=data.run;throw error}return data};
 function toast(text){$('toast').textContent=text;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
@@ -244,20 +245,20 @@ function render(run){
   current=run;const result=run.result||{};const signals=result.signals||[];const actions=result.actions||[];const pending=actions.filter(a=>a.status==='waiting_approval');
   $('summary').textContent=result.summary||(run.error?'诊断执行失败，请查看服务日志。':'工作流正在运行');
   $('status').textContent=label(statusLabels,run.status);$('runid').textContent='运行 '+run.id.slice(0,8);$('policy').textContent='策略 '+run.policy_version;
-  $('runmeta').textContent=`${new Date(run.started_at).toLocaleString('zh-CN')} · ${run.request.store_id} · 已记录 ${run.steps.length} 个步骤`;
+  $('runmeta').textContent=`${new Date(run.started_at).toLocaleString('zh-CN')} · ${run.request.store_id} · ${run.execution_mode==='model_tool_calling'?'模型自主工具调用':'固定工作流'} · ${label(taskLabels,result.task||'diagnosis')} · 已记录 ${run.steps.length} 个步骤`;
   $('query-store').textContent=run.request.store_id;$('store').value=run.request.store_id;
   $('signalcount').textContent=signals.length;$('actioncount').textContent=actions.length;$('approvalcount').textContent=pending.length;
   $('lab-title').textContent=`${run.request.store_id} · ${label(statusLabels,run.status)}`;$('stepcount').textContent=run.steps.length+' 个步骤';
-  $('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(label(signalLabels,s.name))}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):'当前没有投放中的广告低于 ROI 阈值。';
+  $('signals').className=signals.length?'':'empty';$('signals').innerHTML=signals.length?signals.map(s=>`<div class="signal ${esc(s.severity)}"><strong><span>${esc(label(signalLabels,s.name))}</span><span class="delta">${s.delta_percent?esc(s.delta_percent.toFixed(1))+'%':''}</span></strong><small>${esc(s.observation)}</small></div>`).join(''):(run.error?'本次未完成诊断，不能据此判断投放健康。':result.task&&result.task!=='diagnosis'?'本次为问答或数据查询，未执行低 ROI 诊断。':'当前没有投放中的广告低于 ROI 阈值。');
   $('actions').className=actions.length?'':'empty';$('actions').innerHTML=actions.length?actions.map(a=>`<div class="action"><div class="action-head"><strong>${esc(a.title)}</strong><span class="risk ${esc(a.risk)}">${esc(label(riskLabels,a.risk))}</span></div><small>${esc(a.expected_impact)}</small><div class="action-footer"><div><span class="pill">${esc(label(statusLabels,a.status))}</span>${a.preference?`<span class="pill ${esc(a.preference)}">${esc(label(preferenceLabels,a.preference))}</span>`:''}</div><div class="buttons feedback-buttons"><button class="ghost" onclick="openLab('evidence')">依据</button><button class="secondary" onclick="feedbackAction('${esc(a.id)}',true)">适合我</button><button class="secondary" onclick="feedbackAction('${esc(a.id)}',false)">不适合</button></div></div></div>`).join(''):'当前没有需要执行的广告行动。';
   $('approval-banner').classList.toggle('show',run.status==='waiting_approval');
   $('runfeedback').innerHTML=run.result?'<div class="buttons feedback-buttons" style="margin-top:14px"><span style="color:var(--muted)">这次诊断：</span><button class="ghost" onclick="feedbackRun(true)">有帮助</button><button class="ghost" onclick="feedbackRun(false)">没帮助</button></div>':'';
   const ev=result.evidence||[];$('evidence').className=ev.length?'':'empty';$('evidence').innerHTML=ev.length?ev.map(e=>`<div class="evidence"><strong>${esc(e.ref)}</strong><br><small>${esc(label(toolLabels,e.source))}</small><p>${esc(e.excerpt)}</p></div>`).join(''):'暂无诊断证据。';
-  $('timeline').className=run.steps.length?'timeline':'empty';$('timeline').innerHTML=run.steps.length?run.steps.map(s=>`<div class="step"><div class="step-title"><strong>${esc(label(stepLabels,s.name))}</strong><small>${s.duration_ms} 毫秒 · ${esc(label(kindLabels,s.kind))}</small></div><small>${s.tool_calls?.length||0} 次工具调用${s.error?' · 节点存在错误':''}</small><details><summary style="color:var(--muted);cursor:pointer">查看技术载荷</summary><pre>${esc(JSON.stringify({输入:s.input,输出:s.output,工具调用:s.tool_calls,错误:s.error},null,2))}</pre></details></div>`).join(''):'暂无执行轨迹。';
+  $('timeline').className=run.steps.length?'timeline':'empty';$('timeline').innerHTML=run.steps.length?run.steps.map(s=>`<div class="step"><div class="step-title"><strong>${esc(label(stepLabels,s.name))}</strong><small>${s.duration_ms} 毫秒 · ${esc(label(kindLabels,s.kind))}</small></div><small>${s.tool_calls?.length||0} 次工具调用${s.error?' · 节点存在错误':''}</small>${(s.model_turns||[]).map(t=>`<div><small>第 ${esc(t.round)} 轮 · ${esc(t.duration_ms)} 毫秒 · ${t.requests?.length?t.requests.map(c=>esc(label(toolLabels,c.name))).join('、'):'提交最终结果'}${t.error?' · 校验或调用失败':''}</small></div>`).join('')}<details><summary style="color:var(--muted);cursor:pointer">查看技术载荷</summary><pre>${esc(JSON.stringify({输入:s.input,输出:s.output,模型轮次:s.model_turns,工具调用:s.tool_calls,错误:s.error},null,2))}</pre></details></div>`).join(''):'暂无执行轨迹。';
   loadMemory(run.request.store_id);
 }
 
-async function run(){const b=$('run');b.disabled=true;b.textContent='正在分析…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value})}));toast('广告 ROI 分析已完成')}catch(e){toast('请求失败：'+e.message)}finally{b.disabled=false;b.textContent='开始分析'}}
+async function run(){const b=$('run');b.disabled=true;b.textContent='正在分析…';try{render(await request('/api/runs',{method:'POST',body:JSON.stringify({store_id:$('store').value,question:$('question').value})}));toast('广告助手已完成回答')}catch(e){if(e.run)render(e.run);toast('请求失败：'+e.message)}finally{b.disabled=false;b.textContent='开始分析'}}
 async function approve(approved){if(!current)return;try{render(await request(`/api/runs/${current.id}/approve`,{method:'POST',body:JSON.stringify({approved,reason:approved?'已在广告助手完成人工复核':'商家拒绝暂停本次广告计划'})}));toast(approved?'行动已执行':'行动已拒绝')}catch(e){toast('请求失败：'+e.message)}}
 async function feedbackAction(actionID,accepted){if(!current)return;const comment=accepted?'':window.prompt('可以补充不适合的原因（可留空）：','')||'';try{const body={useful:true,comment,accepted_actions:accepted?[actionID]:[],rejected_actions:accepted?[]:[actionID]};const result=await request(`/api/runs/${current.id}/feedback`,{method:'POST',body:JSON.stringify(body)});toast(`已形成 ${result.memory_updates?.length||0} 条记忆，下次诊断生效`);loadMemory(current.request.store_id)}catch(e){toast('反馈失败：'+e.message)}}
 async function feedbackRun(useful){if(!current)return;try{const result=await request(`/api/runs/${current.id}/feedback`,{method:'POST',body:JSON.stringify({useful})});toast(`反馈已保存，并形成 ${result.memory_updates?.length||0} 条记忆`);loadMemory(current.request.store_id)}catch(e){toast('反馈失败：'+e.message)}}
@@ -282,7 +283,7 @@ function renderEvolution(e){
 $('tab-assistant').onclick=()=>switchView('assistant');$('tab-lab').onclick=()=>switchView('lab');
 document.querySelectorAll('[data-lab]').forEach(b=>b.onclick=()=>switchLab(b.dataset.lab));document.querySelectorAll('.prompt').forEach(b=>b.onclick=()=>{$('question').value=b.dataset.prompt;$('question').focus()});
 $('store').oninput=()=>{$('query-store').textContent=$('store').value||'未选择店铺'};$('run').onclick=run;$('refresh').onclick=recent;$('evolve').onclick=evolve;
-request('/api/health').then(()=>$('health').textContent='服务运行正常').catch(()=>$('health').textContent='服务不可用');recent();
+request('/api/health').then(h=>$('health').textContent=h.tool_calling_enabled?'模型工具调用已启用':'固定工作流模式').catch(()=>$('health').textContent='服务不可用');recent();
 </script>
 </body>
 </html>

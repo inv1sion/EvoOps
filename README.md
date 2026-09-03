@@ -25,7 +25,7 @@
 
 ---
 
-EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino) 构建的、轨迹可追溯的广告 ROI 自进化 Agent。它读取投放中广告的经营数据，识别低于版本化 ROI 阈值的计划，创建低风险归因复核任务，并将暂停广告等高风险操作置于人工审批之后。项目重点不是单次 Demo，而是把线上轨迹转化为受约束策略候选，再通过可复现的六层 Evaluation Harness 阻断不安全或效果退化的版本。
+EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino) 构建的、轨迹可追溯的广告 ROI 自进化 Agent。配置模型后，它通过原生 Tool Calling 按需查询广告数据、检索知识，区分知识问答、数据查询和广告诊断。诊断使用版本化 ROI 阈值生成候选行动；模型驱动模式下，创建复核任务和暂停广告都需要用户确认。项目重点是将执行轨迹转化为受约束策略候选，并由六层 Evaluation Harness 阻断不安全或退化版本。
 
 仓库内置 4 个合成商店用例，分别覆盖健康投放、已暂停计划、投放中低 ROI 计划和店铺级偏好记忆。框架边界可复用于其他“决策 + 执行”型 Agent，同时保持当前 Demo 的广告 ROI 场景足够聚焦。
 
@@ -33,7 +33,7 @@ EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino
 
 | 能力 | 实现方式 |
 |---|---|
-| Agent 运行时 | Go + CloudWeGo Eino 编译式 Workflow 与类型化工具 |
+| Agent 运行时 | Go + Eino Workflow，内嵌有预算的原生 Tool Calling 循环 |
 | 自进化对象 | 版本化 Prompt 产物与白名单策略参数 |
 | 评测体系 | 六层 Evaluation Harness + 独立 LLM-as-Verifier/Judge |
 | 检索链路 | Dense + BM25、加权 RRF、父子块自动合并、重排 |
@@ -42,7 +42,8 @@ EvoOps 是一个基于 Go 与 [CloudWeGo Eino](https://github.com/cloudwego/eino
 
 ## 项目亮点
 
-- **同链路精确回放：** Harness 调用与在线 Agent 相同的 Eino Workflow 和类型化工具，仅将真实副作用替换为 `would_execute`。
+- **模型自主工具选择：** Eino `WithTools` → 原生 `tool_calls` → 参数/白名单校验 → `tool` 结果回传。只读工具开放给模型，店铺和策略由程序注入；查询不产生行动，诊断行动全部需确认。
+- **同链路回放：** Harness 调用与在线 Agent 相同的 Eino Workflow 和工具循环，禁止执行副作用；双回放检查实际稳定性，不假定模型决策完全确定。
 - **完整执行轨迹：** 持久化每个节点、工具输入输出、检索排序、耗时、证据引用、行动状态、策略版本和审批事件。
 - **商家记忆与反馈学习：** 将明确的行动反馈和标准化 KPI 结果沉淀为租户隔离、来源可追溯的记忆事实；记忆只影响后续方案排序，不改变风险等级，也不能绕过审批。
 - **混合分层检索：** 采用确定性稠密检索与 BM25 双路召回，通过加权 RRF 融合，并支持父子块自动合并、业务短语重排和策略控制的查询改写。
@@ -93,24 +94,25 @@ flowchart LR
 
 ## 运行架构
 
+详细的输入输出、工具协议、错误边界和例子见 [Tool Calling 运行说明](docs/tool-calling.md)。工具决策 Prompt 当前是独立代码版本，**尚未纳入自动 Prompt 进化**。
+
 ```mermaid
 flowchart LR
-    Q[广告 ROI 问题] --> W[Eino Workflow]
-    W --> C[广告经营数据工具]
-    W --> L[店铺级商家记忆]
-    C --> D[确定性低 ROI 诊断]
-    L --> D
-    D --> R[广告处置手册 RAG]
-    R --> S[本地或 Eino LLM 总结]
-    S --> G{风险门禁}
-    G -->|低风险| X[执行工具]
-    G -->|中高风险| H[持久化审批]
-    H --> X
-    W --> T[(轨迹存储)]
-    X --> T
+    Q[广告问题] --> W[Eino Workflow + 店铺记忆]
+    W --> M[模型工具决策]
+    M --> V[参数校验 + 店铺与策略绑定]
+    V --> R[广告查询 / 知识检索]
+    R --> M
+    M -->|查询与问答| A[答案 + 证据，无行动]
+    M -->|诊断| D[规则诊断 + 版本化 Prompt 摘要]
+    D --> H[所有行动等待用户确认]
+    H --> X[本地模拟执行回执]
+    M --> T[(模型轮次 + 工具轨迹)]
 ```
 
-Agent 可以通过 Eino 官方 MCP 适配器发现白名单内的 MCP SSE 工具。本地 Demo 使用身份请求头模拟授权边界；真实部署应替换为已验证的 OIDC/JWT Claim 和租户级工具策略。
+Agent 可以通过 Eino 官方 MCP 适配器发现白名单内的 MCP SSE 工具，但不会把注册表里的所有工具自动暴露给模型。本地 Demo 使用身份请求头模拟授权边界；真实部署应替换为已验证的 OIDC/JWT Claim 和租户级工具策略。无 Key 或关闭 Tool Calling 时保留原固定诊断流程，低风险任务仍按旧模式执行。
+
+有 Key 时默认启用 `EVOOPS_TOOL_CALLING_ENABLED=true`；可显式设为 `false` 比较固定流程。运行失败不会静默切换模式。新增模型调用计入 Harness 成本，原来的低成本预算可能阻断新链路，历史评测结果不代表新链路结果。
 
 ## 快速开始
 
@@ -126,7 +128,7 @@ go run ./cmd/evoops serve
 
 打开 <http://localhost:8080>。主流程和记忆学习使用 `demo-store`；也可以使用 `healthy-store`、`paused-store` 和 `low-roi-store` 运行隔离用例。
 
-控制台默认进入**广告助手**，保持“问题 → 低 ROI 计划 → 建议行动”的简洁体验。切换到 **Agent 实验室**后，可以检查证据链、Eino 执行轨迹、租户级记忆和持久化自进化报告。页面右上角支持即时切换中文与 English，并会记住选择。
+控制台默认进入中文**广告助手**。切换到 **Agent 实验室**后，可以检查证据链、模型工具调用轮次、Eino 执行轨迹、租户级记忆和持久化自进化报告。README 顶部提供中文与 English 文档切换。
 
 `evolve` 命令执行以下闭环：
 

@@ -25,7 +25,7 @@
 
 ---
 
-EvoOps is a traceable, self-evolving advertising ROI agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). It reads active campaign performance, detects plans below a versioned ROI threshold, creates a low-risk attribution-review task, and guards campaign suspension behind human approval. Its center of gravity is the engineering loop that turns production trajectories into constrained policy candidates and blocks unsafe or regressive candidates with a reproducible six-layer Evaluation Harness.
+EvoOps is a traceable advertising ROI agent built with Go and [CloudWeGo Eino](https://github.com/cloudwego/eino). With a configured model it uses native Tool Calling to select campaign queries or knowledge retrieval, then separates knowledge QA, data queries, and diagnosis. Deterministic ROI rules and a versioned summary prompt produce diagnostic proposals. In model-driven mode, every operational action requires explicit confirmation. A six-layer Harness evaluates constrained prompt/policy evolution and blocks unsafe or regressive candidates.
 
 The included synthetic stores cover four focused advertising cases: healthy delivery, an already-paused plan, an active low-ROI plan, and store-scoped preference memory. The framework boundary remains reusable for other decision-and-execution agents without mixing those domains into this demo.
 
@@ -33,7 +33,7 @@ The included synthetic stores cover four focused advertising cases: healthy deli
 
 | Capability | Implementation |
 |---|---|
-| Agent runtime | Go + CloudWeGo Eino compiled workflow and typed tools |
+| Agent runtime | Go + Eino Workflow with a bounded native tool-calling loop |
 | Evolution target | Versioned Prompt artifacts and allowlisted policy parameters |
 | Evaluation | Six-layer Harness plus independent LLM-as-Verifier/Judge |
 | Retrieval | Dense + BM25, weighted RRF, parent auto-merge, reranking |
@@ -42,7 +42,8 @@ The included synthetic stores cover four focused advertising cases: healthy deli
 
 ## Why this project is different
 
-- **Exact-path replay:** the Harness invokes the same compiled Eino workflow and typed tools as the live agent, with side effects replaced by `would_execute`.
+- **Model-driven tool selection:** native tool schemas, `tool_calls`, validated execution and correlated `tool` messages. Only two read-only tools are exposed; tenant scope and retrieval policy are injected by the application.
+- **Same-path replay:** the Harness uses the same workflow and tool loop with side effects disabled. It checks actual replay stability rather than assuming deterministic model decisions.
 - **Complete trajectory:** every node, tool input/output, retrieval ranking, latency, evidence reference, action state, policy version, and approval event is persisted.
 - **Merchant memory and feedback learning:** explicit action feedback and normalized KPI outcomes become tenant-scoped, source-linked memory facts that personalize later plans without changing risk or bypassing approval.
 - **Hybrid hierarchical retrieval:** a deterministic dense channel and BM25 sparse channel are fused with weighted RRF, followed by parent auto-merge, business-phrase reranking, and policy-controlled query rewriting.
@@ -93,24 +94,23 @@ Every evolution run also persists a compact baseline/candidate comparison: case 
 
 ## Runtime architecture
 
+Tool Calling is enabled by default when a key is configured (`EVOOPS_TOOL_CALLING_ENABLED=true`). No key, or an explicit `false`, retains the fixed diagnosis workflow. Runtime model failure does not silently fall back to that workflow. The planner prompt is independently versioned in code and is **not yet automatically evolved**. See the [detailed implementation guide (Chinese)](docs/tool-calling.md).
+
 ```mermaid
 flowchart LR
-    Q[Advertising ROI question] --> W[Eino Workflow]
-    W --> C[Campaign performance tool]
-    W --> L[Store-scoped merchant memory]
-    C --> D[Deterministic low-ROI diagnosis]
-    L --> D
-    D --> R[Advertising playbook RAG]
-    R --> S[Local or Eino LLM ad summary]
-    S --> G{Risk gate}
-    G -->|low risk| X[Execute tool]
-    G -->|medium / high| H[Durable approval]
-    H --> X
-    W --> T[(Trajectory store)]
-    X --> T
+    Q[Advertising question] --> W[Eino Workflow + merchant memory]
+    W --> M[Model tool selection]
+    M --> V[Validate and bind scope / policy]
+    V --> R[Campaign query / knowledge search]
+    R --> M
+    M -->|QA or data query| A[Answer and evidence, no actions]
+    M -->|Diagnosis| D[ROI rules + versioned summary prompt]
+    D --> H[Confirm every proposed action]
+    H --> X[Local simulated execution receipt]
+    M --> T[(Model turns and tool traces)]
 ```
 
-The agent can discover allowlisted MCP SSE tools through Eino's official MCP adapter. Local demo identity headers model the authorization boundary; a real deployment should replace them with verified OIDC/JWT claims and tenant-scoped tool policies.
+The registry can discover allowlisted MCP SSE tools through Eino's official adapter, but those tools are not automatically exposed to the model. Local demo identity headers are not production authentication; replace them with verified OIDC/JWT claims and tenant policies. Data, retrieval and memory backends remain local demo implementations. Extra model rounds are charged to Harness cost proxies; existing low budgets may block the new path. Historical evaluation results do not establish performance for this new path.
 
 ## Quick start
 

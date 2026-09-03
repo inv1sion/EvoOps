@@ -35,6 +35,30 @@ func TestConsoleUsesSimplifiedChinese(t *testing.T) {
 	}
 }
 
+func TestFailedRunReturnsPersistedTrajectory(t *testing.T) {
+	a, err := app.New(context.Background(), config.Config{DataDir: t.TempDir(), DemoDataPath: "../../data/demo/store.json", HarnessDataPath: "../../data/harness/suite.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	r := httptest.NewRequest(http.MethodPost, "/api/runs", strings.NewReader(`{"store_id":"nonexistent-store"}`))
+	w := httptest.NewRecorder()
+	New(a).Handler().ServeHTTP(w, r)
+	var result struct {
+		Error string      `json:"error"`
+		Run   *domain.Run `json:"run"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusUnprocessableEntity || result.Error == "" || result.Run == nil || result.Run.Status != domain.RunFailed || len(result.Run.Steps) == 0 {
+		t.Fatalf("failed trajectory missing: %s", w.Body.String())
+	}
+	if _, err := a.Repo.GetRun(context.Background(), result.Run.ID); err != nil {
+		t.Fatal("failed run was not persisted")
+	}
+}
+
 func TestApprovalEndpointRequiresRole(t *testing.T) {
 	application, err := app.New(context.Background(), config.Config{
 		DataDir: t.TempDir(), DemoDataPath: "../../data/demo/store.json",

@@ -116,7 +116,9 @@ func (s *Suite) Evaluate(ctx context.Context, selected domain.Policy, baseline *
 }
 
 func (s *Suite) evaluateCase(ctx context.Context, selected domain.Policy, testCase domain.HarnessCase) (domain.HarnessCaseReport, error) {
-	request := domain.DiagnosisRequest{StoreID: testCase.StoreID, Question: testCase.Question, Window: 7}
+	// This suite evaluates diagnosis, not intent classification. Auto-routing is
+	// covered separately by tool-calling tests and live smoke checks.
+	request := domain.DiagnosisRequest{StoreID: testCase.StoreID, Question: testCase.Question, Window: 7, Task: "diagnosis"}
 	run, err := s.replay(ctx, request, selected, testCase)
 	if err != nil {
 		return domain.HarnessCaseReport{}, err
@@ -193,6 +195,11 @@ func scoreTrajectory(testCase domain.HarnessCase, selected domain.Policy, run *d
 		if step.Error != "" {
 			errorsFound++
 		}
+		for _, turn := range step.ModelTurns {
+			if turn.Error != "" {
+				errorsFound++
+			}
+		}
 		for _, call := range step.ToolCalls {
 			toolSet[call.Name] = true
 			toolCalls++
@@ -201,7 +208,11 @@ func scoreTrajectory(testCase domain.HarnessCase, selected domain.Policy, run *d
 			}
 		}
 	}
-	sequenceScore := sequenceSimilarity(testCase.ExpectedStepSequence, actualSteps)
+	expectedSteps := testCase.ExpectedStepSequence
+	if run.ExecutionMode == "model_tool_calling" && len(testCase.ExpectedToolCallingStepSequence) > 0 {
+		expectedSteps = testCase.ExpectedToolCallingStepSequence
+	}
+	sequenceScore := sequenceSimilarity(expectedSteps, actualSteps)
 	toolRecall := setRecall(stringSet(testCase.RequiredTools), toolSet)
 	budgetPass := len(run.Steps) <= selected.MaxWorkflowSteps && toolCalls <= selected.MaxToolCalls
 	errorFree := errorsFound == 0
@@ -210,7 +221,7 @@ func scoreTrajectory(testCase domain.HarnessCase, selected domain.Policy, run *d
 	passed := sequenceScore == 1 && toolRecall == 1 && budgetPass && reproducible && errorFree && memoryAccuracy == 1
 	var failures []string
 	if sequenceScore < 1 {
-		failures = append(failures, fmt.Sprintf("step sequence mismatch: actual=%v expected=%v", actualSteps, testCase.ExpectedStepSequence))
+		failures = append(failures, fmt.Sprintf("step sequence mismatch: actual=%v expected=%v", actualSteps, expectedSteps))
 	}
 	if toolRecall < 1 {
 		failures = append(failures, fmt.Sprintf("required tool recall %.2f", toolRecall))
@@ -306,10 +317,20 @@ func scoreOutcome(testCase domain.HarnessCase, run *domain.Run) domain.HarnessLa
 func scoreCost(testCase domain.HarnessCase, selected domain.Policy, run *domain.Run) domain.HarnessLayerReport {
 	toolCalls := 0
 	modelCalls := 0
+	plannerInputTokens, plannerOutputTokens := 0, 0
 	latency := int64(0)
 	for _, step := range run.Steps {
-		toolCalls += len(step.ToolCalls)
+		for _, call := range step.ToolCalls {
+			if !call.Cached && call.ErrorCode != "invalid_arguments" && call.ErrorCode != "tool_denied" {
+				toolCalls++
+			}
+		}
 		latency += step.DurationMS
+		modelCalls += len(step.ModelTurns)
+		for _, turn := range step.ModelTurns {
+			plannerInputTokens += turn.PromptTokens
+			plannerOutputTokens += turn.CompletionTokens
+		}
 		if step.Kind == "model" {
 			modelCalls++
 		}
@@ -341,6 +362,8 @@ func scoreCost(testCase domain.HarnessCase, selected domain.Policy, run *domain.
 	}
 	return layerWithFailures("cost", score, costPass && latencyPass, false, map[string]float64{
 		"cost_units": round(costUnits), "cost_budget": budget,
+		"model_call_count": float64(modelCalls), "tool_execution_count": float64(toolCalls),
+		"planner_prompt_tokens": float64(plannerInputTokens), "planner_completion_tokens": float64(plannerOutputTokens),
 		"latency_ms": float64(latency), "latency_budget_ms": float64(latencyBudget),
 	}, failures)
 }
@@ -455,9 +478,10 @@ func trajectoryFingerprint(run *domain.Run) string {
 		Error     string         `json:"error,omitempty"`
 	}
 	type normalizedStep struct {
-		Name  string               `json:"name"`
-		Kind  string               `json:"kind"`
-		Tools []normalizedToolCall `json:"tools,omitempty"`
+		Name        string               `json:"name"`
+		Kind        string               `json:"kind"`
+		Tools       []normalizedToolCall `json:"tools,omitempty"`
+		ModelRounds int                  `json:"model_rounds,omitempty"`
 	}
 	type normalizedSignal struct {
 		Name         string   `json:"name"`
@@ -473,14 +497,19 @@ func trajectoryFingerprint(run *domain.Run) string {
 		Status     string           `json:"status"`
 	}
 	normalized := struct {
-		Status    domain.RunStatus   `json:"status"`
-		Steps     []normalizedStep   `json:"steps"`
-		Signals   []normalizedSignal `json:"signals"`
-		Actions   []normalizedAction `json:"actions"`
-		Retrieval []string           `json:"retrieval"`
-	}{Status: run.Status}
+		ExecutionMode string             `json:"execution_mode,omitempty"`
+		Task          string             `json:"task,omitempty"`
+		Status        domain.RunStatus   `json:"status"`
+		Steps         []normalizedStep   `json:"steps"`
+		Signals       []normalizedSignal `json:"signals"`
+		Actions       []normalizedAction `json:"actions"`
+		Retrieval     []string           `json:"retrieval"`
+	}{Status: run.Status, ExecutionMode: run.ExecutionMode}
+	if run.Result != nil {
+		normalized.Task = run.Result.Task
+	}
 	for _, step := range run.Steps {
-		item := normalizedStep{Name: step.Name, Kind: step.Kind}
+		item := normalizedStep{Name: step.Name, Kind: step.Kind, ModelRounds: len(step.ModelTurns)}
 		for _, call := range step.ToolCalls {
 			item.Tools = append(item.Tools, normalizedToolCall{
 				Name: call.Name, Arguments: call.Arguments, Result: normalizedToolResult(call), Error: call.Error,
@@ -536,15 +565,25 @@ func normalizedToolResult(call domain.ToolCall) any {
 }
 
 func retrievalResult(run *domain.Run) domain.RetrievalResult {
+	var combined domain.RetrievalResult
+	seen := map[string]bool{}
 	for _, step := range run.Steps {
 		for _, call := range step.ToolCalls {
-			if call.Name != tools.ToolKnowledge {
+			if call.Name != tools.ToolKnowledge || call.Error != "" || call.Cached {
 				continue
 			}
-			return retrievalFromValue(call.Result)
+			result := retrievalFromValue(call.Result)
+			combined.Cost += result.Cost
+			combined.Trace.RewriteUsed = combined.Trace.RewriteUsed || result.Trace.RewriteUsed
+			for _, id := range result.Trace.FinalRanking {
+				if !seen[id] {
+					combined.Trace.FinalRanking = append(combined.Trace.FinalRanking, id)
+					seen[id] = true
+				}
+			}
 		}
 	}
-	return domain.RetrievalResult{}
+	return combined
 }
 
 func retrievalFromValue(value any) domain.RetrievalResult {
